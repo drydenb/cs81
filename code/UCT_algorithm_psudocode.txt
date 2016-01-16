@@ -1,6 +1,9 @@
 # adopted from "A Survey of Monte Carlo Tree Search Methods"
 # by Browne et. al (2012)
 
+
+
+
 # the following is pseudo-code for the upper confidance bound
 # for trees algorithm (UCT) 
 
@@ -40,6 +43,22 @@ function TREE_POLICY(v)
 
 
 
+
+# expand takes some node v and adds a new child to it 
+function EXPAND(v)
+	# A(s(v)) is the set of possible actions from s(v) = the 
+	# state at node v 
+	choose a in ( untried actions from A(s(v)) )
+	add a new child v' to v
+		# the state s' = s(v') resulting from performing action a on s
+		with s(v') = f(s(v), a)
+		# a(v') is the action that resulted in v', i.e. incoming action 
+		and  a(v') = a 
+	return v' 
+
+
+
+
 # this selects the best child according to the UCT equation 
 # (i.e., treating the next selection as a multi-armed bandit
 # problem)
@@ -55,10 +74,11 @@ function BEST_CHILD(v, c)
 # s to the end of the game, returning the reward from that rollout 
 function DEFAULT_POLICY(s)
 	while (s is non-terminal) do
+
 		# let A(s) be all possible actions from state s
 		choose a in A(s) uniformly at random
 
-		# what is f?
+		# f generates the next state given some state s and some action a
 		s <-- f(s, a)
 
 	return reward for state s (i.e. delta)
@@ -66,12 +86,29 @@ function DEFAULT_POLICY(s)
 
 
 
-# 
+# this function goes back through all the nodes we visited and updates
+# them according to the result of the rollout 
 function BACK_PROPAGATE(v, delta)
+	# until we are at the root 
 	while (v is not null) do
+
+		# update the number of visits for the node 
 		N(v) <-- N(v) + 1
+
+		# delta(v, p) is the reward for player p to move at node v 
 		Q(v) <-- Q(v) + delta(v, p)
+
+		# continue to go up the tree 
 		v    <-- parent of v 
 
 
 
+
+# the back propagation for two players (i.e., inverting the reward for
+# the opposing player)
+function BACK_PROPAGATE_NEGAMAX(v, delta)
+	while (v is not null) do
+		N(v)  <-- N(v) + 1
+		Q(v)  <-- Q(v) + delta
+		delta <-- -delta
+		v     <-- parent of v 
