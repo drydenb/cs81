@@ -1,0 +1,24 @@
+Notes for week 1
+================
+
+-- Start with 9x9 board.
+
+-- Superko rule to avoid repetitions.
+
+-- Termination checking.  Consider "pass" as a separate move and look for cases
+where passing doesn't lower success probabilities.
+
+-- Go text protocol for interfacing with client programs (graphical interfaces).
+
+-- Scoring algorithm.
+
+-- Doxygen for documentation.  Document all major pieces of code.
+
+-- Design documents (high-level view).  Include links to relevant papers.
+
+-- Get databases of games if possible.
+
+-- For 19x19: Joseki dictionary.
+
+-- Try phone apps e.g. SmartGo.
+
