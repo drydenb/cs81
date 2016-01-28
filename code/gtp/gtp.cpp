@@ -1,5 +1,6 @@
 #include <iostream>
 #include <string>
+#include <sstream> 
 
 using namespace std;
 
@@ -50,13 +51,18 @@ string gtp_preprocess(string input) {
 			for (string::iterator it = it_hash; it != input.end(); ++it) {
 				if ( *it == '\n' ) {
 					found_newline = true;    // we found a newline   
-					it_newline = it;         // record location of the newline 
+					it_newline = it;         // record location of the newline
+					break;                   // one comment at a time 
 				} 
 			}
 			// remove the comment. be defensive by not assuming the last comment 
 			// is terminated by '\n'
-			if (found_newline) 
+			if (found_newline) {
+				// string to_delete(it_hash, it_newline);
+				// cout << "Deleting:" << to_delete << endl;
+				// cout << "done." << endl; 
 				input.erase(it_hash, it_newline);
+			}
 			else 
 				input.erase(it_hash, input.end());
 		}
@@ -79,24 +85,68 @@ string gtp_preprocess(string input) {
 	}
 
 	// DISCARD EMPTY OR WHITESPACE ONLY LINES // 
+	string output;
+	string line;
+	istringstream iss(input); 
+	while (getline(iss, line)) {
+		// cout << line << endl;
+		if(line.find_first_not_of(" \t\n\v\f\r") != string::npos) {
+		    // cout << "The following line has non-whitespace:" << endl; 
+		    // cout << line << endl; 
+		    output = output + line + '\n'; 
+		} 
+		// else {
+		// 	cout << "The following line is whitespace:" << endl;
+		// 	cout << line << endl; 
+		// }
+	}
 
+	// cout << "The resulting output is:" << endl;
+	// cout << output; 
 
 	// print out ascii 
-	for (string::iterator it = input.begin(); it != input.end(); ++it) { 
-		int ascii_code = static_cast<int>(*it);    // get the ascii code
-		cout << ascii_code << " "; 
-	}
-	cout << endl; 
-	cout << input;  
-	string result("thing");
-	return result;
+	// for (string::iterator it = input.begin(); it != input.end(); ++it) { 
+	// 	int ascii_code = static_cast<int>(*it);    // get the ascii code
+	// 	cout << ascii_code << " "; 
+	// }
+	// cout << endl; 
+	// cout << input;  
+
+	return output;
 }
 
+// valid forms are:
+// 		id command_name arguments\n
+// 		id command_name\n
+// 		command_name arguments\n
+// 		command_name\n
+void gtp_parse_command(string input) {
 
+	istringstream iss(input);
+	string token;
+	iss >> token; 
+
+	// while we can get valid tokens, see if we can parse the command
+	bool found_id = false;
+	bool found_command = false;
+	bool valid_args = false; 
+
+	while (iss >> token) {
+		// cout << "Token is: \'" << token << "\'" << endl; 
+		// first token is either an id or a command_name
+		try {
+			int id = stoi(token);
+			found_id = true; 
+		} 
+		catch (const std::invalid_argument& ia) {
+			;
+		}
+	}	 
+}
 
 int main() {
-	string s("3 tabs: 			done. # this is a comment \n # another comment");
-	gtp_preprocess(s);
-	// print_ascii(s); 
+	string test("3 tabs:			. # this is a comment \n # another comment \n   		   \n\n\n more stuff # final comment \n");
+	string processed = gtp_preprocess(test);
+	gtp_parse_command(processed); 
 	return 0; 
 }
