@@ -1,30 +1,20 @@
-
+#ifndef __BOARD_H__
+#define __BOARD_H__
 
 #include <iostream>
+#include <vector> 
+
+using namespace std;
 
 struct Board {
 	int size;
-	int *grid;
+	vector<vector<int> > grid;
 	int captured_blk;
 	int captured_wht;
 	float komi;
 	// time settings
-	Board(int size) {
-		this->size = size;
-		grid = new int[this->size][this->size];
-		captured_blk = 0;
-		captured_wht = 0;
-		komi = 0.0;
-	}
-	~Board() {
-		delete[] this->grid;
-	}
+	Board(int size);
+	~Board();
 };
 
-int main() {
-	Board b(19);
-	for (int i = 0; i < b.size; ++i) {
-		std::cout << b[i][i] << std::endl;
-	}
-	return 0; 
-}
+#endif 

@@ -2,6 +2,12 @@
 #include <string>
 #include <sstream> 
 
+#include <vector> 
+#include <unordered_map>
+
+// #include <cstdlib> 
+
+#include <boost/lexical_cast.hpp>
 using namespace std;
 
 // void print_ascii(string s) {
@@ -12,9 +18,70 @@ using namespace std;
 // 	}
 // }
 
+typedef struct GTP_Command {
+	
+	int id;
+	bool has_id; 
+
+	string command_name;
+	vector<string> args;
+
+	bool error_flag;
+	
+	string response; 
+	
+	GTP_Command () {
+		has_id = false; 
+		error_flag = false; 
+	}   
+} GTP_Command;
+
+// we need to keep track of all valid commands so we know when we're given 
+// invalid inputs 
+// vector<string> valid_commands 
+// {
+// 	"protocol_version",
+// 	"name",
+// 	"known_command",
+// 	"list_commands",
+// 	"quit",
+// 	"boardsize",
+// 	"clear_board",
+// 	"komi",
+// 	"play",
+// 	"genmove",
+// };
+
+unordered_map<string, int> supported_commands {
+	// { command_name, number of arguments } 
+	{"protocol_version", 0},
+	{"name", 0},
+	{"version", 0},
+	{"known_command", 1},
+	{"list_commands", 0},
+	{"quit", 0},
+	{"boardsize", 1},
+	{"clear_board", 0},
+	{"komi", 1},
+	{"play", 1},
+	{"genmove", 1}
+};
+
+void gtp_debug_print_cmd(GTP_Command cmd) {
+	cout << "ID: " << cmd.id << endl; 
+	cout << "HAS ID: " << cmd.has_id << endl;
+	cout << "COMMAND NAME: \'" << cmd.command_name << "\'" << endl; 
+	for (int i = 0; i < cmd.args.size(); ++i) 
+		cout << "ARG " << i << ": \'" << cmd.args[i] << "\'" << endl; 
+	cout << "FLAG: " << cmd.error_flag << endl; 
+	cout << "RESPONSE: \'" << cmd.response << "\'" << endl;  
+	return; 
+}
+
+
 // this function preprocesses an input command to the engine  
 string gtp_preprocess(string input) {
-
+	
 	// REMOVE CONTROL CHARACTERS // 
 	// remove all control characters ASCII 0-31 and 127, except for HT (dec 9)
 	// and LF (dec 10)
@@ -23,7 +90,7 @@ string gtp_preprocess(string input) {
 		if ( (ascii_code <= 31) || (ascii_code == 127) ) {
 			if ( (ascii_code != 9) && (ascii_code != 10) ) 
 				input.erase(it); 
-		} 
+		}
 	}
 	
 	// REMOVE COMMENTS // 
@@ -120,33 +187,138 @@ string gtp_preprocess(string input) {
 // 		id command_name\n
 // 		command_name arguments\n
 // 		command_name\n
-void gtp_parse_command(string input) {
+// we only need to check if the input is in the form:
+// id command_name
+// or 
+// command_name
+GTP_Command gtp_parse_command(string input) {
 
+	// prepare for parsing
 	istringstream iss(input);
-	string token;
-	iss >> token; 
+	string token; 
+	GTP_Command gtp_cmd; 
 
-	// while we can get valid tokens, see if we can parse the command
-	bool found_id = false;
-	bool found_command = false;
-	bool valid_args = false; 
+    iss >> token;    // get the first token 
+    try { 
+    	int id = boost::lexical_cast<int>(token);
+    	gtp_cmd.id = id;
+    	gtp_cmd.has_id = true;
 
-	while (iss >> token) {
-		// cout << "Token is: \'" << token << "\'" << endl; 
-		// first token is either an id or a command_name
-		try {
-			int id = stoi(token);
-			found_id = true; 
-		} 
-		catch (const std::invalid_argument& ia) {
-			;
+    	// if we got here, the next token should be the command_name 
+    	iss >> token; 
+    	string command_name = token;
+    	gtp_cmd.command_name = command_name; 
+    }
+    catch (const boost::bad_lexical_cast &) { 
+    	// the token we have should be the command name 
+    	string command_name = token;
+    	gtp_cmd.command_name = command_name; 
+    }
+
+    // if we made it here, we should have tokenized as far as command_name 
+
+	// if the command is supported, parse its arguments 
+	unordered_map<string, int>::const_iterator cmd =
+					supported_commands.find(gtp_cmd.command_name);
+
+	if ( cmd == supported_commands.end() ) {
+		// didn't find the command_name
+		gtp_cmd.error_flag = true; 
+		return gtp_cmd; 
+	} else {
+		// look up the number of arguments for the command 
+		int num_args = cmd->second;
+		// read the rest of the arguments 
+		for (int i = 0; i < num_args; ++i) {
+			iss >> token;
+			gtp_cmd.args.push_back(token); 
 		}
-	}	 
+	}
+	return gtp_cmd; 
 }
 
+void gtp_success_response() {
+	return; 
+}
+
+void gtp_failure_response() {
+	return; 
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// COMMAND DEFINITIONS
+////////////////////////////////////////////////////////////////////////////////
+
+// a successful response is of the form 
+// =id response\n\n
+// =id\n\n
+// = response\n\n
+// =\n\n
+
+// string process_output(GTP_Command &cmd, string input) {
+// 	string prepended; 
+// 	if (cmd.has_id) {
+// 		string id = to_string(cmd.id);
+// 		prepended = "=" + id + " " + input ; 
+// 	}
+// 	return 
+// }
+
+// this code implements GTP Protocol Version 2 
+void gtp_protocol_version(GTP_Command &cmd) {
+	if (cmd.has_id) {
+		string id = to_string(cmd.id);
+		cmd.response = string("=" + id + " 2\n\n");
+	} else {
+		cmd.response = string("= 2\n\n"); 
+	}
+	return; 
+}
+
+// prints out the name of this engine. this doesn't matter -- just pick "Izumi"
+void gtp_name(GTP_Command &cmd) {
+	if (cmd.has_id) {
+		string id = to_string(cmd.id);
+		cmd.response = string("=" + id + " Izumi\n\n");
+	} else {
+		cmd.response = string("= Izumi\n\n"); 
+	}
+	return; 
+}
+
+// prints out the version number for this engine. since no sense of version return
+// the empty string (compliant with GTP) 
+void gtp_version(GTP_Command &cmd) {
+	if (cmd.has_id) {
+		string id = to_string(cmd.id);
+		cmd.response = string("=" + id + "\n\n");
+	} else {
+		cmd.response = string("=\n\n");
+	}
+	return; 
+}
+
+// void gtp_known_command(GTP_Command &cmd) {
+// 	if(cmd.has_id) {
+// 		string id = to_string;
+// 	}
+// }
+
+
+
+
 int main() {
-	string test("3 tabs:			. # this is a comment \n # another comment \n   		   \n\n\n more stuff # final comment \n");
+	// string test("3 tabs:			. # this is a comment \n # another comment \n   		   \n\n\n more stuff # final comment \n");
+	string test("# comment \n 28 komi 1.0 \n");
 	string processed = gtp_preprocess(test);
-	gtp_parse_command(processed); 
+	// cout << processed << endl; 
+	GTP_Command command = gtp_parse_command(processed);
+	// gtp_protocol_version(command);
+	// cout << "Next line: " << endl; 
+	// cout << command.response; 
+	gtp_debug_print_cmd(command);
+	// for (int i = 0; i < valid_commands.size(); ++i) {
+	// 	cout << valid_commands[i] << endl; 
+	// } 
 	return 0; 
 }
