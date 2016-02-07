@@ -1,57 +1,22 @@
 #include <iostream>
-#include <string>
+// #include <string>
 #include <sstream> 
-
-#include <vector> 
+// #include <vector> 
 #include <unordered_map>
-
-// #include <cstdlib> 
-
+#include <cstdlib> 
 #include <boost/lexical_cast.hpp>
+
+#include "gtp.hpp" 
+#include "board.hpp"
+
 using namespace std;
 
-// void print_ascii(string s) {
-// 	for (string::iterator it = s.begin(); it != s.end(); ++it) { 
-// 		int ascii_code = static_cast<int>(*it);    // get the ascii code
-// 		cout << "Original string:" << s;
-// 		cout << "ASCII, space delim:" << ascii_code << " "; 
-// 	}
-// }
+////////////////////////////////////////////////////////////////////////////////
+// GLOBALS
+////////////////////////////////////////////////////////////////////////////////
 
-typedef struct GTP_Command {
-	
-	int id;
-	bool has_id; 
-
-	string command_name;
-	vector<string> args;
-
-	bool error_flag;
-	
-	string response; 
-	
-	GTP_Command () {
-		has_id = false; 
-		error_flag = false; 
-	}   
-} GTP_Command;
-
-// we need to keep track of all valid commands so we know when we're given 
-// invalid inputs 
-// vector<string> valid_commands 
-// {
-// 	"protocol_version",
-// 	"name",
-// 	"known_command",
-// 	"list_commands",
-// 	"quit",
-// 	"boardsize",
-// 	"clear_board",
-// 	"komi",
-// 	"play",
-// 	"genmove",
-// };
-
+// an unordered map containing all supported GTP commands as keys and the number
+// of arguments expected for each command as values 
 unordered_map<string, int> supported_commands {
 	// { command_name, number of arguments } 
 	{"protocol_version", 0},
@@ -67,17 +32,28 @@ unordered_map<string, int> supported_commands {
 	{"genmove", 1}
 };
 
+// a Board struct instance 
+// Board board; 
+
+////////////////////////////////////////////////////////////////////////////////
+// DEBUGGING 
+////////////////////////////////////////////////////////////////////////////////
+
+// pretty prints a GTP_Command  
 void gtp_debug_print_cmd(GTP_Command cmd) {
 	cout << "ID: " << cmd.id << endl; 
 	cout << "HAS ID: " << cmd.has_id << endl;
 	cout << "COMMAND NAME: \'" << cmd.command_name << "\'" << endl; 
-	for (int i = 0; i < cmd.args.size(); ++i) 
+	for (unsigned i = 0; i < cmd.args.size(); ++i) 
 		cout << "ARG " << i << ": \'" << cmd.args[i] << "\'" << endl; 
 	cout << "FLAG: " << cmd.error_flag << endl; 
 	cout << "RESPONSE: \'" << cmd.response << "\'" << endl;  
 	return; 
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// INPUT / OUTPUT PROCESSING 
+////////////////////////////////////////////////////////////////////////////////
 
 // this function preprocesses an input command to the engine  
 string gtp_preprocess(string input) {
@@ -237,16 +213,36 @@ GTP_Command gtp_parse_command(string input) {
 	return gtp_cmd; 
 }
 
-void gtp_success_response() {
-	return; 
+// wraps a response.
+// this function wraps using '=' GTP syntax is the command is successful,
+// and wraps with '?' syntax otherwise 
+void gtp_process_command(GTP_Command &cmd) {
+	// if there is no error, return a successful response with '=' 
+	if (!cmd.error_flag) {    
+		// prepend the id if there is one 
+		if (cmd.has_id) {
+			string id = to_string(cmd.id);
+			cmd.response = "=" + id + " " + cmd.response + "\n\n"; 
+		} else 
+			cmd.response = "= " + cmd.response + "\n\n"; 
+	 // otherwise, return the failure response with '?'
+	} else {   
+		// prepend the id if there is one 
+		if (cmd.has_id) {
+			string id = to_string(cmd.id);
+			cmd.response = "?" + id + " " + cmd.response + "\n\n"; 
+		} else 
+			cmd.response = "? " + cmd.response + "\n\n"; 
+	}
 }
 
-void gtp_failure_response() {
-	return; 
+// this sends the response from the engine to stdout 
+void gtp_respond(GTP_Command &cmd) {
+	cout << cmd.response << endl; 
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// COMMAND DEFINITIONS
+// GTP COMMAND IMPLEMENTATIONS 
 ////////////////////////////////////////////////////////////////////////////////
 
 // a successful response is of the form 
@@ -266,59 +262,128 @@ void gtp_failure_response() {
 
 // this code implements GTP Protocol Version 2 
 void gtp_protocol_version(GTP_Command &cmd) {
-	if (cmd.has_id) {
-		string id = to_string(cmd.id);
-		cmd.response = string("=" + id + " 2\n\n");
-	} else {
-		cmd.response = string("= 2\n\n"); 
-	}
+	cmd.response = string("2");
+	assert (!cmd.error_flag);    	// this command never fails  
 	return; 
 }
 
 // prints out the name of this engine. this doesn't matter -- just pick "Izumi"
 void gtp_name(GTP_Command &cmd) {
-	if (cmd.has_id) {
-		string id = to_string(cmd.id);
-		cmd.response = string("=" + id + " Izumi\n\n");
-	} else {
-		cmd.response = string("= Izumi\n\n"); 
-	}
+	cmd.response = string("Izumi");
+	assert (!cmd.error_flag);    // this command never fails 
 	return; 
 }
 
 // prints out the version number for this engine. since no sense of version return
 // the empty string (compliant with GTP) 
 void gtp_version(GTP_Command &cmd) {
-	if (cmd.has_id) {
-		string id = to_string(cmd.id);
-		cmd.response = string("=" + id + "\n\n");
-	} else {
-		cmd.response = string("=\n\n");
-	}
+	cmd.response = string(""); 
+	assert (!cmd.error_flag);    // this command never fails 
 	return; 
 }
 
-// void gtp_known_command(GTP_Command &cmd) {
-// 	if(cmd.has_id) {
-// 		string id = to_string;
-// 	}
-// }
+// checks if the command given is supported 
+void gtp_known_command(GTP_Command &cmd) {
+	// if known return true 
+	unordered_map<string, int>::const_iterator cmd_it =
+					supported_commands.find(cmd.args[0]);
 
+	if ( cmd_it == supported_commands.end() ) {
+		cmd.response = string("false");    // this command is not supported 
+	} else {
+		cmd.response = string("true");    // this command is supported
+	} 
+	assert (!cmd.error_flag);    // this command never fails 
+	return; 
+}
 
+// lists all the commands supported by the engine 
+void gtp_list_commands(GTP_Command &cmd) {
+	for (unordered_map<string, int>::iterator it = supported_commands.begin(); 
+		it != supported_commands.end();
+		++it) {
+		cmd.response = cmd.response + it->first + "\n"; 
+	}
+	assert (!cmd.error_flag);    // this command never fails 
+	return; 
+}
 
+void gtp_quit(GTP_Command &cmd) {
+	cmd.response = string(""); 
+	assert (!cmd.error_flag); 
+	gtp_process_command(cmd); 
+	gtp_respond(cmd);
+	exit (EXIT_SUCCESS); 
+}
+
+void gtp_boardsize(GTP_Command &cmd) {
+	// if we're adjusting the board, just make a new board. 
+	// this avoids any shady business with left over variables in an instance.
+	return; 
+}
+
+void gtp_clear_board(GTP_Command &cmd) {
+	return; 
+}
+
+void gtp_komi(GTP_Command &cmd) {
+	return; 
+}
+
+void gtp_dispatch(GTP_Command &cmd) {
+	// depending on the command name, call the appropriate function 
+	if (cmd.command_name == "protocol_version") 
+		gtp_protocol_version(cmd);
+	else if (cmd.command_name == "name")
+		gtp_name(cmd);
+	else if (cmd.command_name == "version") 
+		gtp_version(cmd); 
+	else if (cmd.command_name == "known_command")
+		gtp_known_command(cmd);
+	else if (cmd.command_name == "list_commands")
+		gtp_list_commands(cmd);
+	else if (cmd.command_name == "quit")
+		gtp_quit(cmd);
+	else if (cmd.command_name == "boardsize")
+		;
+	else if (cmd.command_name == "clear_board")
+		;
+	else if (cmd.command_name == "komi") 
+		;
+	else if (cmd.command_name == "play")
+		;
+	else if (cmd.command_name == "genmove")
+		;
+	else {
+		;
+	}
+}
 
 int main() {
 	// string test("3 tabs:			. # this is a comment \n # another comment \n   		   \n\n\n more stuff # final comment \n");
-	string test("# comment \n 28 komi 1.0 \n");
+	// string test("# comment \n 28 komi 1.0 \n");
+	
+	string test("# giving protocol command: \n 30 protocol_version \n");
 	string processed = gtp_preprocess(test);
 	// cout << processed << endl; 
 	GTP_Command command = gtp_parse_command(processed);
-	// gtp_protocol_version(command);
+	gtp_list_commands(command);
 	// cout << "Next line: " << endl; 
 	// cout << command.response; 
 	gtp_debug_print_cmd(command);
 	// for (int i = 0; i < valid_commands.size(); ++i) {
 	// 	cout << valid_commands[i] << endl; 
-	// } 
-	return 0; 
+	// }
+
+	// constantly respond to input from stdin 
+	string input; 
+	while (true) {
+		getline(cin, input);
+		cin.clear();
+
+
+
+	}
+
+	// exit (EXIT_SUCCESS); 
 }
