@@ -18,7 +18,6 @@ using namespace std;
 // GLOBALS
 ////////////////////////////////////////////////////////////////////////////////
 
-
 // an unordered map containing all supported GTP commands as keys and the number
 // of arguments expected for each command as values 
 unordered_map<string, int> supported_commands {
@@ -39,17 +38,24 @@ unordered_map<string, int> supported_commands {
 // define a mapping from each letter in the modified alphabet (doesn't include
 // the letter 'i') to an index in the board 
 string alphabet("abcdefghjklmnopqrstuvwxyz");   
-unordered_map<char, int> alphabet_board_coords;
+unordered_map<char, int> alphabet_to_index;
+// unordered_map<int, char> index_to_alphabet; 
 
 // a Board struct instance 
 Board board;
 
 // initializes global variables, etc. 
 void gtp_init() {
+	// board:
+	//       A -----> Z 
+	// 19 
+	// ...
+	// 1 
+
 	int idx = 1;
 	BOOST_FOREACH (char c, alphabet) {
 		pair<char ,int> letter_coord (c, idx);
-		alphabet_board_coords.insert(letter_coord);
+		alphabet_to_index.insert(letter_coord);
 		++idx; 
 	}
 }
@@ -59,7 +65,7 @@ void gtp_init() {
 ////////////////////////////////////////////////////////////////////////////////
 
 // pretty prints a GTP_Command  
-void gtp_debug_print_cmd(GTP_Command cmd) {
+void print_GTP_Command(GTP_Command cmd) {
 	cout << "ID: " << cmd.id << endl; 
 	cout << "HAS ID: " << cmd.has_id << endl;
 	cout << "COMMAND NAME: \'" << cmd.command_name << "\'" << endl; 
@@ -69,6 +75,17 @@ void gtp_debug_print_cmd(GTP_Command cmd) {
 	cout << "RESPONSE: \'" << cmd.response << "\'" << endl;  
 	return; 
 }
+
+void print_Board(Board board) {
+	for (unsigned i = 0; i < board.grid.size(); ++i) {
+		for (unsigned j = 0; j < board.grid.size(); ++j) {
+			cout << board.grid[i][j] << " ";
+		}
+		cout << endl; 
+	}
+	return; 
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////
 // INPUT / OUTPUT PROCESSING 
@@ -368,52 +385,120 @@ void gtp_komi(GTP_Command &cmd) {
 	return; 
 }
 
-tuple<int> parse_move(string move, bool &flag) {
-	// get the letter of the move 
-	char letter = move[0];
-	string index = move.substr(1); 
+tuple<int, int> parse_move(string move, bool &flag) {
 
+	// get the x coordinate of the move
+	int x_coord;   
+	char letter = move[0]; 
 	unordered_map<char,int>::const_iterator it = 
-		alphabet_board_coords.find(letter);
+		alphabet_to_index.find(letter);
+	if ( it == alphabet_to_index.end() ) {
+		flag = true;
+		tuple<int, int> dummy (0, 0);  
+		return dummy; 
+	} else {
+		// retrieve the index 
+		x_coord = it->second; 
+	}
 
-	if ( it == alphabet_board_coords.end() )
-		
-	else
-		std::cout << got->first << " is " << got->second;
+	// get the y_coordinate of the move 
+	int y_coord = stoi(move.substr(1)); 
+	
+	// this y_coordinate isn't quite right yet, (i.e., A1 is the lower 
+	// left hand corner). change the y_coordinate so it indexes from 
+	// bottom to top instead of top to bottom. 
+	y_coord = (board.size - y_coord) + 1;
 
-  std::cout << std::endl;
-
-	return; 
+	// sanity check: 19 - 1 + 1 = 19, and 19 - 19 + 1 = 1.
+	tuple<int, int> pair (x_coord, y_coord); 
+	return pair; 
 }
 
 void gtp_play(GTP_Command &cmd) {
 	// retrive the color and move from args  
 	string color = cmd.args[0];
-	string move = cmd.args[1]; 
-	transform(color.begin(), color.end(), color.begin(), tolower);
-	transform(move.begin(), move.end(), move.begin(), tolower);
+	string move = cmd.args[1];
+	// cast color and move to lowercase 
+	transform(color.begin(), color.end(), color.begin(), ::tolower);
+	transform(move.begin(), move.end(), move.begin(), ::tolower);
 
 	// parse the move
-	// tuple<int> coord = 
+	bool parse_flag = false; 
+	tuple<int, int> coord = parse_move(move, parse_flag);
+	if (parse_flag) {
+		cmd.error_flag = true;
+		cmd.response = string("illegal move"); 
+		return; 
+	} 
 
-	if ( (color.tolower() == "black") || (color.tolower() == "b") ) {
-		; 
+	if ( (color == "black") || (color == "b") ) {
+		// move black where move is
+		board.grid[get<0>(coord)][get<1>(coord)] = BLACK;  
+	} else if ( (color == "white") || (color == "w" ) ) {
+		// move white where move is
+		board.grid[get<0>(coord)][get<1>(coord)] = WHITE;  
+	} else {
+		cmd.error_flag = true;
+		cmd.response = string("syntax error");  
 	}
 
+	// print_Board(board); 
 
-
-	// check if the move is illegal
-	if (true) {
-		// cmd.
-	}
+	return; 
 }
+
+// void convert_to_vertex(int i, int j) {
+// 	string vertex; 
+// }
 
 void gtp_genmove(GTP_Command &cmd) {
 
+	string color = cmd.args[0];    // retrieve the color 
+	transform(color.begin(), color.end(), color.begin(), ::tolower); 
+
+	bool black_flag = false;
+	bool white_flag = false; 
+
+	if ( (color == "b") || (color == "black") ) {
+		black_flag = true;
+	} else if ( (color == "w") || (color == "white") ) {
+		white_flag = true;
+	} else {
+		cmd.error_flag = true;
+		cmd.response = string("unknown command");
+		return; 
+	}
+
+	// generates a move of the given color. for now, have this play moves 
+	// in a for loop 
+	bool done = false; 
+	for (unsigned i = 0; i < board.grid.size(); ++i) {
+		for (unsigned j = 0; j < board.grid.size(); ++j) {
+			if ( (black_flag) && (board.grid[i][j] == EMPTY) ) 
+				board.grid[i][j] = BLACK;
+				done = true;
+				break;
+			if ( (white_flag) && (board.grid[i][j] == EMPTY) )
+				board.grid[i][j] = WHITE;
+				done = true;
+				break;
+		}
+		if (done) 
+			break;
+	}
+
+	// for now, just return "A1"
+
+	cmd.response = string("A1"); 
+
+	// print_Board(board); 
+
+	return; 
 }
 
 // this function calls the appropriate GTP command for a given instance 
 void gtp_dispatch(GTP_Command &cmd) {
+
 	// depending on the command name, call the appropriate function 
 	if (cmd.command_name == "protocol_version") 
 		gtp_protocol_version(cmd);
@@ -434,27 +519,45 @@ void gtp_dispatch(GTP_Command &cmd) {
 	else if (cmd.command_name == "komi") 
 		gtp_komi(cmd); 
 	else if (cmd.command_name == "play")
-		
+		gtp_play(cmd);
 	else if (cmd.command_name == "genmove")
-		;
+		gtp_genmove(cmd);
 	else {
-		;
+		// cout << "made it here" << endl; 
+		cmd.error_flag = true;
+		cmd.response = string("unknown command"); 
 	}
+
+	return; 
 }
 
 int main() {
-	gtp_init(); 
+
 	// string test("3 tabs:			. # this is a comment \n # another comment \n   		   \n\n\n more stuff # final comment \n");
 	// string test("# comment \n 28 komi 1.0 \n");
-	
-	string test("# giving protocol command: \n 30 protocol_version \n");
-	string processed = gtp_preprocess(test);
-	// cout << processed << endl; 
-	GTP_Command command = gtp_parse_command(processed);
-	gtp_list_commands(command);
+
+	gtp_init(); 
+	// cout << "Before:" << endl; 
+	// print_Board(board); 
+
+	// string test("# giving protocol command: \n genmove b \n");
+	// string processed = gtp_preprocess(test);
+
+	// // cout << processed << endl; 
+
+	// GTP_Command command = gtp_parse_command(processed);
+
+	// // gtp_list_commands(command);
+	// gtp_dispatch(command); 
+	// gtp_process_command(command);
+	// gtp_respond(command);
+
+	// cout << "After:" << endl; 
+	// print_Board(board); 
+
 	// cout << "Next line: " << endl; 
 	// cout << command.response; 
-	gtp_debug_print_cmd(command);
+	// print_GTP_Command(command);
 	// for (int i = 0; i < valid_commands.size(); ++i) {
 	// 	cout << valid_commands[i] << endl; 
 	// }
@@ -465,9 +568,17 @@ int main() {
 		getline(cin, input);
 		cin.clear();
 
+		if (input == "\n") 
+			continue; 
 
-
+		string processed = gtp_preprocess(input);
+		GTP_Command cmd = gtp_parse_command(processed);
+		gtp_dispatch(cmd);
+		gtp_process_command(cmd);
+		gtp_respond(cmd);
 	}
+
+	// if we made it here, then the input was quit
 
 	// exit (EXIT_SUCCESS); 
 }
