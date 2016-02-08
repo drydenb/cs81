@@ -93,3 +93,73 @@
 	// 	int num_args = cmd->second;
 	// 	cout << num_args << endl;  
 	// }
+
+
+	// this code implements GTP Protocol Version 2 
+void gtp_protocol_version(GTP_Command &cmd) {
+	// this command never fails  
+	cmd.success_response = string("2");
+
+	if (cmd.has_id) {
+		string id = to_string(cmd.id);
+		cmd.response = string("=" + id + " 2\n\n");
+	} else {
+		cmd.response = string("= 2\n\n"); 
+	}
+	return; 
+}
+
+// prints out the name of this engine. this doesn't matter -- just pick "Izumi"
+void gtp_name(GTP_Command &cmd) {
+	if (cmd.has_id) {
+		string id = to_string(cmd.id);
+		cmd.response = string("=" + id + " Izumi\n\n");
+	} else {
+		cmd.response = string("= Izumi\n\n"); 
+	}
+	return; 
+}
+
+// prints out the version number for this engine. since no sense of version return
+// the empty string (compliant with GTP) 
+void gtp_version(GTP_Command &cmd) {
+	if (cmd.has_id) {
+		string id = to_string(cmd.id);
+		cmd.response = string("=" + id + "\n\n");
+	} else {
+		cmd.response = string("=\n\n");
+	}
+	return; 
+}
+
+// void gtp_known_command(GTP_Command &cmd) {
+// 	if(cmd.has_id) {
+// 		string id = to_string;
+// 	}
+// }
+
+
+
+// void print_ascii(string s) {
+// 	for (string::iterator it = s.begin(); it != s.end(); ++it) { 
+// 		int ascii_code = static_cast<int>(*it);    // get the ascii code
+// 		cout << "Original string:" << s;
+// 		cout << "ASCII, space delim:" << ascii_code << " "; 
+// 	}
+// }
+
+// we need to keep track of all valid commands so we know when we're given 
+// invalid inputs 
+// vector<string> valid_commands 
+// {
+// 	"protocol_version",
+// 	"name",
+// 	"known_command",
+// 	"list_commands",
+// 	"quit",
+// 	"boardsize",
+// 	"clear_board",
+// 	"komi",
+// 	"play",
+// 	"genmove",
+// };

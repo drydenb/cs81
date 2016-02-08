@@ -1,6 +1,18 @@
 #include <iostream>
 #include "board.hpp"
 
+#define DEFAULT_BOARDSIZE 9 
+
+// default no argument constructor 
+Board::Board() {
+	size = DEFAULT_BOARDSIZE; 
+	grid = vector<vector<int> >(size, vector<int>(size, 0));
+	captured_blk = 0;
+	captured_wht = 0;
+	komi = 0.0;
+}
+
+// constructor with boardsize argument 
 Board::Board(int s) {
 	size = s; 
 	grid = vector<vector<int> >(size, vector<int>(size, 0));

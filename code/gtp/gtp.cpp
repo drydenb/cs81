@@ -1,10 +1,13 @@
 #include <iostream>
 // #include <string>
 #include <sstream> 
+#include <algorithm>
 // #include <vector> 
+#include <tuple> 
 #include <unordered_map>
 #include <cstdlib> 
 #include <boost/lexical_cast.hpp>
+#include <boost/foreach.hpp> 
 
 #include "gtp.hpp" 
 #include "board.hpp"
@@ -14,6 +17,7 @@ using namespace std;
 ////////////////////////////////////////////////////////////////////////////////
 // GLOBALS
 ////////////////////////////////////////////////////////////////////////////////
+
 
 // an unordered map containing all supported GTP commands as keys and the number
 // of arguments expected for each command as values 
@@ -28,12 +32,27 @@ unordered_map<string, int> supported_commands {
 	{"boardsize", 1},
 	{"clear_board", 0},
 	{"komi", 1},
-	{"play", 1},
+	{"play", 2},
 	{"genmove", 1}
 };
 
+// define a mapping from each letter in the modified alphabet (doesn't include
+// the letter 'i') to an index in the board 
+string alphabet("abcdefghjklmnopqrstuvwxyz");   
+unordered_map<char, int> alphabet_board_coords;
+
 // a Board struct instance 
-// Board board; 
+Board board;
+
+// initializes global variables, etc. 
+void gtp_init() {
+	int idx = 1;
+	BOOST_FOREACH (char c, alphabet) {
+		pair<char ,int> letter_coord (c, idx);
+		alphabet_board_coords.insert(letter_coord);
+		++idx; 
+	}
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 // DEBUGGING 
@@ -317,19 +336,83 @@ void gtp_quit(GTP_Command &cmd) {
 }
 
 void gtp_boardsize(GTP_Command &cmd) {
-	// if we're adjusting the board, just make a new board. 
-	// this avoids any shady business with left over variables in an instance.
+	// retrive the boardsize from args 
+	int size = stoi(cmd.args[0]);     
+
+	// test if this boardsize is supported 
+	if ( (size > 25) || (size < 1) ) {
+		cmd.error_flag = true;
+		cmd.response = string("unacceptable size"); 
+		return; 
+	}
+
+	// otherwise, set the boardsize 
+	board.size = size;               
 	return; 
 }
 
 void gtp_clear_board(GTP_Command &cmd) {
+	// retrieve the boardsize from instance, clear the board, clear the 
+	// capture counts, and clear move history
+	int size = board.size;    
+	board.grid = vector<vector<int> >(size, vector<int>(size, EMPTY)); 
+	board.captured_blk = 0;    
+	board.captured_wht = 0;   
+	board.move_history.clear();  
 	return; 
 }
 
 void gtp_komi(GTP_Command &cmd) {
+	float new_komi = stof(cmd.args[0]);    // retrieve the komi from args
+	board.komi = new_komi;                 // set the komi 
 	return; 
 }
 
+tuple<int> parse_move(string move, bool &flag) {
+	// get the letter of the move 
+	char letter = move[0];
+	string index = move.substr(1); 
+
+	unordered_map<char,int>::const_iterator it = 
+		alphabet_board_coords.find(letter);
+
+	if ( it == alphabet_board_coords.end() )
+		
+	else
+		std::cout << got->first << " is " << got->second;
+
+  std::cout << std::endl;
+
+	return; 
+}
+
+void gtp_play(GTP_Command &cmd) {
+	// retrive the color and move from args  
+	string color = cmd.args[0];
+	string move = cmd.args[1]; 
+	transform(color.begin(), color.end(), color.begin(), tolower);
+	transform(move.begin(), move.end(), move.begin(), tolower);
+
+	// parse the move
+	// tuple<int> coord = 
+
+	if ( (color.tolower() == "black") || (color.tolower() == "b") ) {
+		; 
+	}
+
+
+
+	// check if the move is illegal
+	if (true) {
+		// cmd.
+	}
+}
+
+void gtp_genmove(GTP_Command &cmd) {
+
+}
+
+// this function calls the appropriate GTP command for a given instance 
 void gtp_dispatch(GTP_Command &cmd) {
 	// depending on the command name, call the appropriate function 
 	if (cmd.command_name == "protocol_version") 
@@ -345,13 +428,13 @@ void gtp_dispatch(GTP_Command &cmd) {
 	else if (cmd.command_name == "quit")
 		gtp_quit(cmd);
 	else if (cmd.command_name == "boardsize")
-		;
+		gtp_boardsize(cmd);
 	else if (cmd.command_name == "clear_board")
-		;
+		gtp_clear_board(cmd);
 	else if (cmd.command_name == "komi") 
-		;
+		gtp_komi(cmd); 
 	else if (cmd.command_name == "play")
-		;
+		
 	else if (cmd.command_name == "genmove")
 		;
 	else {
@@ -360,6 +443,7 @@ void gtp_dispatch(GTP_Command &cmd) {
 }
 
 int main() {
+	gtp_init(); 
 	// string test("3 tabs:			. # this is a comment \n # another comment \n   		   \n\n\n more stuff # final comment \n");
 	// string test("# comment \n 28 komi 1.0 \n");
 	
