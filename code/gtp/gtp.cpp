@@ -38,24 +38,26 @@ unordered_map<string, int> supported_commands {
 // define a mapping from each letter in the modified alphabet (doesn't include
 // the letter 'i') to an index in the board 
 string alphabet("abcdefghjklmnopqrstuvwxyz");   
+// letter from GUI --> index for internal grid representation 
 unordered_map<char, int> alphabet_to_index;
-// unordered_map<int, char> index_to_alphabet; 
+// index from internal grid representation --> letter to GUI 
+unordered_map<int, char> index_to_alphabet; 
 
 // a Board struct instance 
 Board board;
 
-// initializes global variables, etc. 
+// initializes global maps
 void gtp_init() {
-	// board:
-	//       A -----> Z 
-	// 19 
-	// ...
-	// 1 
-
-	int idx = 1;
+	int idx = 0;
 	BOOST_FOREACH (char c, alphabet) {
 		pair<char ,int> letter_coord (c, idx);
 		alphabet_to_index.insert(letter_coord);
+		++idx; 
+	}
+	idx = 0;
+	BOOST_FOREACH (char c, alphabet) {
+		pair<int, char> coord_letter (idx, c);
+		index_to_alphabet.insert(coord_letter);
 		++idx; 
 	}
 }
@@ -376,6 +378,8 @@ void gtp_clear_board(GTP_Command &cmd) {
 	board.captured_blk = 0;    
 	board.captured_wht = 0;   
 	board.move_history.clear();  
+
+	// print_Board(board); 
 	return; 
 }
 
@@ -387,8 +391,8 @@ void gtp_komi(GTP_Command &cmd) {
 
 tuple<int, int> parse_move(string move, bool &flag) {
 
-	// get the x coordinate of the move
-	int x_coord;   
+	// get the y coordinate of the move
+	int y_coord;   
 	char letter = move[0]; 
 	unordered_map<char,int>::const_iterator it = 
 		alphabet_to_index.find(letter);
@@ -398,16 +402,17 @@ tuple<int, int> parse_move(string move, bool &flag) {
 		return dummy; 
 	} else {
 		// retrieve the index 
-		x_coord = it->second; 
+		y_coord = it->second; 
 	}
 
 	// get the y_coordinate of the move 
-	int y_coord = stoi(move.substr(1)); 
-	
-	// this y_coordinate isn't quite right yet, (i.e., A1 is the lower 
-	// left hand corner). change the y_coordinate so it indexes from 
+	int x_coord = stoi(move.substr(1)); 
+	--x_coord;
+
+	// this x_coordinate isn't quite right yet, (i.e., A1 is the lower 
+	// left hand corner). change the x_coordinate so it indexes from 
 	// bottom to top instead of top to bottom. 
-	y_coord = (board.size - y_coord) + 1;
+	// x_coord = (board.size - x_coord) + 1;
 
 	// sanity check: 19 - 1 + 1 = 19, and 19 - 19 + 1 = 1.
 	tuple<int, int> pair (x_coord, y_coord); 
@@ -421,6 +426,9 @@ void gtp_play(GTP_Command &cmd) {
 	// cast color and move to lowercase 
 	transform(color.begin(), color.end(), color.begin(), ::tolower);
 	transform(move.begin(), move.end(), move.begin(), ::tolower);
+
+	// cout << "color" << color << endl;
+	// cout << "move" << move << endl; 
 
 	// parse the move
 	bool parse_flag = false; 
@@ -471,25 +479,56 @@ void gtp_genmove(GTP_Command &cmd) {
 
 	// generates a move of the given color. for now, have this play moves 
 	// in a for loop 
+	int x_played;
+	int y_played; 
 	bool done = false; 
 	for (unsigned i = 0; i < board.grid.size(); ++i) {
 		for (unsigned j = 0; j < board.grid.size(); ++j) {
-			if ( (black_flag) && (board.grid[i][j] == EMPTY) ) 
+			if ( (black_flag) && (board.grid[i][j] == EMPTY) ) {
+				// cout << "Inside black" << endl;
 				board.grid[i][j] = BLACK;
+				x_played = i;
+				y_played = j; 
 				done = true;
 				break;
-			if ( (white_flag) && (board.grid[i][j] == EMPTY) )
+			}
+			if ( (white_flag) && (board.grid[i][j] == EMPTY) ) {
+				// cout << "Inside white" << endl; 
 				board.grid[i][j] = WHITE;
+				x_played = i;
+				y_played = j; 
 				done = true;
 				break;
+			}
 		}
 		if (done) 
 			break;
 	}
 
-	// for now, just return "A1"
+	// cout << x_played << endl; 
+	// cout << y_played << endl;
+	// print_Board(board); 
+	// cout << BLACK;
+	// cout << WHITE;
+	// cout << EMPTY; 
+	string y_string; 
+	unordered_map<int, char>::const_iterator it = 
+										index_to_alphabet.find(y_played);
+	if ( it == index_to_alphabet.end() ) {
+		cerr << "Invalid index played" << endl; 
+		exit(EXIT_FAILURE); 
+	} else {
+		stringstream ss; 
+		char y_char = it->second;
+		ss << y_char;
+		ss >> y_string;  
+	}
 
-	cmd.response = string("A1"); 
+	++x_played;    // the board is indexed at 1 
+
+	string x_string = to_string(x_played);
+	transform(y_string.begin(), y_string.end(), y_string.begin(), ::toupper); 
+	cmd.response = string(y_string + x_string); 
 
 	// print_Board(board); 
 
@@ -576,6 +615,7 @@ int main() {
 		gtp_dispatch(cmd);
 		gtp_process_command(cmd);
 		gtp_respond(cmd);
+		// print_Board(board); 
 	}
 
 	// if we made it here, then the input was quit

@@ -1,7 +1,7 @@
 # A simple makefile to compile the gtp protocol and board 
 # representation
 CC = g++
-CFLAGS = -std=c++11 -Wall 
+CFLAGS = -std=c++11 -Wall -g 
 EXEC = gtp 
 all: $(EXEC)
 
