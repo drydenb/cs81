@@ -312,8 +312,8 @@ void gtp_name(GTP_Command &cmd) {
 	return; 
 }
 
-// prints out the version number for this engine. since no sense of version return
-// the empty string (compliant with GTP) 
+// prints out the version number for this engine. since no sense of version 
+// return the empty string (compliant with GTP) 
 void gtp_version(GTP_Command &cmd) {
 	cmd.response = string(""); 
 	assert (!cmd.error_flag);    // this command never fails 
@@ -346,6 +346,7 @@ void gtp_list_commands(GTP_Command &cmd) {
 	return; 
 }
 
+// exits with success 
 void gtp_quit(GTP_Command &cmd) {
 	cmd.response = string(""); 
 	assert (!cmd.error_flag); 
