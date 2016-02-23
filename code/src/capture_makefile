@@ -2,14 +2,14 @@
 # representation
 CC = g++
 CFLAGS = -std=c++11 -Wall -g 
-EXEC = gtp 
+EXEC = capture
 all: $(EXEC)
 
-$(EXEC): gtp.o board.o 
-	$(CC) $(CFLAGS) -o gtp gtp.o board.o 
+$(EXEC): capture.o board.o
+	$(CC) $(CFLAGS) -o capture capture.o
 
-gtp.o: gtp.cpp gtp.hpp
-	$(CC) $(CFLAGS) -c gtp.cpp 
+capture.o: capture.cpp capture.hpp
+	$(CC) $(CFLAGS) -c capture.cpp
 
 board.o: board.cpp board.hpp
 	$(CC) $(CFLAGS) -c board.cpp  

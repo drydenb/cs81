@@ -569,55 +569,55 @@ void gtp_dispatch(GTP_Command &cmd) {
 	return; 
 }
 
-int main() {
+// int main() {
 
-	// string test("3 tabs:			. # this is a comment \n # another comment \n   		   \n\n\n more stuff # final comment \n");
-	// string test("# comment \n 28 komi 1.0 \n");
+// 	// string test("3 tabs:			. # this is a comment \n # another comment \n   		   \n\n\n more stuff # final comment \n");
+// 	// string test("# comment \n 28 komi 1.0 \n");
 
-	gtp_init(); 
-	// cout << "Before:" << endl; 
-	// print_Board(board); 
+// 	gtp_init(); 
+// 	// cout << "Before:" << endl; 
+// 	// print_Board(board); 
 
-	// string test("# giving protocol command: \n genmove b \n");
-	// string processed = gtp_preprocess(test);
+// 	// string test("# giving protocol command: \n genmove b \n");
+// 	// string processed = gtp_preprocess(test);
 
-	// // cout << processed << endl; 
+// 	// // cout << processed << endl; 
 
-	// GTP_Command command = gtp_parse_command(processed);
+// 	// GTP_Command command = gtp_parse_command(processed);
 
-	// // gtp_list_commands(command);
-	// gtp_dispatch(command); 
-	// gtp_process_command(command);
-	// gtp_respond(command);
+// 	// // gtp_list_commands(command);
+// 	// gtp_dispatch(command); 
+// 	// gtp_process_command(command);
+// 	// gtp_respond(command);
 
-	// cout << "After:" << endl; 
-	// print_Board(board); 
+// 	// cout << "After:" << endl; 
+// 	// print_Board(board); 
 
-	// cout << "Next line: " << endl; 
-	// cout << command.response; 
-	// print_GTP_Command(command);
-	// for (int i = 0; i < valid_commands.size(); ++i) {
-	// 	cout << valid_commands[i] << endl; 
-	// }
+// 	// cout << "Next line: " << endl; 
+// 	// cout << command.response; 
+// 	// print_GTP_Command(command);
+// 	// for (int i = 0; i < valid_commands.size(); ++i) {
+// 	// 	cout << valid_commands[i] << endl; 
+// 	// }
 
-	// constantly respond to input from stdin 
-	string input; 
-	while (true) {
-		getline(cin, input);
-		cin.clear();
+// 	// constantly respond to input from stdin 
+// 	string input; 
+// 	while (true) {
+// 		getline(cin, input);
+// 		cin.clear();
 
-		if (input == "\n") 
-			continue; 
+// 		if (input == "\n") 
+// 			continue; 
 
-		string processed = gtp_preprocess(input);
-		GTP_Command cmd = gtp_parse_command(processed);
-		gtp_dispatch(cmd);
-		gtp_process_command(cmd);
-		gtp_respond(cmd);
-		// print_Board(board); 
-	}
+// 		string processed = gtp_preprocess(input);
+// 		GTP_Command cmd = gtp_parse_command(processed);
+// 		gtp_dispatch(cmd);
+// 		gtp_process_command(cmd);
+// 		gtp_respond(cmd);
+// 		// print_Board(board); 
+// 	}
 
-	// if we made it here, then the input was quit
+// 	// if we made it here, then the input was quit
 
-	// exit (EXIT_SUCCESS); 
-}
+// 	// exit (EXIT_SUCCESS); 
+// }

@@ -1,7 +1,7 @@
 #include <iostream>
 #include "board.hpp"
 
-#define DEFAULT_BOARDSIZE 9 
+#define DEFAULT_BOARDSIZE 19
 
 // default no argument constructor 
 Board::Board() {
