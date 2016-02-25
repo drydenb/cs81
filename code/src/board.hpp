@@ -11,13 +11,19 @@
 using namespace std;
 
 struct Board {
+
+	// members 
 	int size;
 	vector<vector<int> > grid;
 	int captured_blk;
 	int captured_wht;
-	vector<string> move_history; 
+	vector<vector<vector<int>> > move_history; // vector of grids   
 	float komi;
-	// time settings
+	int just_moved;
+
+	/* include time settings? */ 
+
+	// constructors, destructors, mutators, etc. 
 	Board(); 
 	Board(int size);
 	~Board();

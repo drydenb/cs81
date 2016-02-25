@@ -3,10 +3,13 @@
 #include <algorithm>
 #include <tuple> 
 #include <unordered_map>
+#include <random> 
 #include <cstdlib> 
+
 #include <boost/lexical_cast.hpp>
 #include <boost/foreach.hpp> 
 
+#include "capture.hpp" 
 #include "gtp.hpp" 
 #include "board.hpp"
 
@@ -418,7 +421,9 @@ tuple<int, int> parse_move(string move, bool &flag) {
 	return pair; 
 }
 
+// forces the board to play in a particular given position 
 void gtp_play(GTP_Command &cmd) {
+
 	// retrive the color and move from args  
 	string color = cmd.args[0];
 	string move = cmd.args[1];
@@ -441,22 +446,41 @@ void gtp_play(GTP_Command &cmd) {
 	if ( (color == "black") || (color == "b") ) {
 		// move black where move is
 		board.grid[get<0>(coord)][get<1>(coord)] = BLACK;  
+		// change the just_moved flag in the board 
+		board.just_moved = BLACK; 
+		// update the move history 
+		board.move_history.push_back(board.grid); 
 	} else if ( (color == "white") || (color == "w" ) ) {
 		// move white where move is
 		board.grid[get<0>(coord)][get<1>(coord)] = WHITE;  
+		// change just_moved
+		board.just_moved = WHITE; 
+		// update the move history 
+		board.move_history.push_back(board.grid); 
 	} else {
 		cmd.error_flag = true;
 		cmd.response = string("syntax error");  
 	}
 
 	// print_Board(board); 
+	
+	// check the board for captures 
+	perform_captures(board); 
 
 	return; 
 }
 
-// void convert_to_vertex(int i, int j) {
-// 	string vertex; 
-// }
+// this function determines if the grid passed in has been seen before 
+bool move_in_history(Board const &board, vector<vector<int> > const &tentative) {
+	bool seen = false; 
+	for (unsigned i = 0; i < board.move_history.size(); ++i) {
+		if (tentative == board.move_history[i]) {
+			seen = true;
+			return seen;  
+		}
+	}
+	return seen; 
+}
 
 void gtp_genmove(GTP_Command &cmd) {
 
@@ -480,29 +504,72 @@ void gtp_genmove(GTP_Command &cmd) {
 	// in a for loop 
 	int x_played;
 	int y_played; 
+	int color_played; 
 	bool done = false; 
-	for (unsigned i = 0; i < board.grid.size(); ++i) {
-		for (unsigned j = 0; j < board.grid.size(); ++j) {
-			if ( (black_flag) && (board.grid[i][j] == EMPTY) ) {
-				// cout << "Inside black" << endl;
-				board.grid[i][j] = BLACK;
-				x_played = i;
-				y_played = j; 
-				done = true;
-				break;
-			}
-			if ( (white_flag) && (board.grid[i][j] == EMPTY) ) {
-				// cout << "Inside white" << endl; 
-				board.grid[i][j] = WHITE;
-				x_played = i;
-				y_played = j; 
-				done = true;
-				break;
-			}
+
+	// draw from a uniform random distribution on [0, board.grid.size() - 1] 
+	// since the minimum index is 0 and the maximum index is the boardsize - 1. 
+	default_random_engine generator; 
+	uniform_int_distribution<int> distribution(0, board.grid.size() - 1); 
+
+	while (!done) {
+
+		// draw samples from the distribution 
+		int x_idx = distribution(generator); 
+		int y_idx = distribution(generator); 
+
+		// copy the current board state into tentative_move 
+		vector<vector<int> > tentative = board.grid; 
+
+		// perform the tentative move 
+		if ((black_flag) && (tentative[x_idx][y_idx] == EMPTY)) {
+			tentative[x_idx][y_idx] = BLACK;
+			color_played = BLACK; 
 		}
-		if (done) 
-			break;
+		if ((white_flag) && (tentative[x_idx][y_idx] == EMPTY)) {
+			tentative[x_idx][y_idx] = WHITE;
+			color_played = WHITE;  
+		}
+
+		// using the tentative board, we test if this move has occurred before 
+		if (!move_in_history(board, tentative)) {
+			// perform the move  
+			board.grid = tentative;
+
+			// record what move was performed, the color that moved, and
+			// record this move in the move history 
+			x_played = x_idx;
+			y_played = y_idx; 
+			board.just_moved = color_played; 
+			board.move_history.push_back(board.grid); 
+
+			// the move is complete 
+			done = true;  
+		}
 	}
+
+	// for (unsigned i = 0; i < board.grid.size(); ++i) {
+	// 	for (unsigned j = 0; j < board.grid.size(); ++j) {
+	// 		if ( (black_flag) && (board.grid[i][j] == EMPTY) ) {
+	// 			// cout << "Inside black" << endl;
+	// 			board.grid[i][j] = BLACK;
+	// 			x_played = i;
+	// 			y_played = j; 
+	// 			done = true;
+	// 			break;
+	// 		}
+	// 		if ( (white_flag) && (board.grid[i][j] == EMPTY) ) {
+	// 			// cout << "Inside white" << endl; 
+	// 			board.grid[i][j] = WHITE;
+	// 			x_played = i;
+	// 			y_played = j; 
+	// 			done = true;
+	// 			break;
+	// 		}
+	// 	}
+	// 	if (done) 
+	// 		break;
+	// }
 
 	// cout << x_played << endl; 
 	// cout << y_played << endl;
@@ -529,8 +596,10 @@ void gtp_genmove(GTP_Command &cmd) {
 	transform(y_string.begin(), y_string.end(), y_string.begin(), ::toupper); 
 	cmd.response = string(y_string + x_string); 
 
-	// print_Board(board); 
+	// print_Board(board);
 
+	// check the board for captures: 
+	perform_captures(board); 
 	return; 
 }
 
@@ -569,55 +638,55 @@ void gtp_dispatch(GTP_Command &cmd) {
 	return; 
 }
 
-// int main() {
+int main() {
 
-// 	// string test("3 tabs:			. # this is a comment \n # another comment \n   		   \n\n\n more stuff # final comment \n");
-// 	// string test("# comment \n 28 komi 1.0 \n");
+	// string test("3 tabs:			. # this is a comment \n # another comment \n   		   \n\n\n more stuff # final comment \n");
+	// string test("# comment \n 28 komi 1.0 \n");
 
-// 	gtp_init(); 
-// 	// cout << "Before:" << endl; 
-// 	// print_Board(board); 
+	gtp_init(); 
+	// cout << "Before:" << endl; 
+	// print_Board(board); 
 
-// 	// string test("# giving protocol command: \n genmove b \n");
-// 	// string processed = gtp_preprocess(test);
+	// string test("# giving protocol command: \n genmove b \n");
+	// string processed = gtp_preprocess(test);
 
-// 	// // cout << processed << endl; 
+	// // cout << processed << endl; 
 
-// 	// GTP_Command command = gtp_parse_command(processed);
+	// GTP_Command command = gtp_parse_command(processed);
 
-// 	// // gtp_list_commands(command);
-// 	// gtp_dispatch(command); 
-// 	// gtp_process_command(command);
-// 	// gtp_respond(command);
+	// // gtp_list_commands(command);
+	// gtp_dispatch(command); 
+	// gtp_process_command(command);
+	// gtp_respond(command);
 
-// 	// cout << "After:" << endl; 
-// 	// print_Board(board); 
+	// cout << "After:" << endl; 
+	// print_Board(board); 
 
-// 	// cout << "Next line: " << endl; 
-// 	// cout << command.response; 
-// 	// print_GTP_Command(command);
-// 	// for (int i = 0; i < valid_commands.size(); ++i) {
-// 	// 	cout << valid_commands[i] << endl; 
-// 	// }
+	// cout << "Next line: " << endl; 
+	// cout << command.response; 
+	// print_GTP_Command(command);
+	// for (int i = 0; i < valid_commands.size(); ++i) {
+	// 	cout << valid_commands[i] << endl; 
+	// }
 
-// 	// constantly respond to input from stdin 
-// 	string input; 
-// 	while (true) {
-// 		getline(cin, input);
-// 		cin.clear();
+	// constantly respond to input from stdin 
+	string input; 
+	while (true) {
+		getline(cin, input);
+		cin.clear();
 
-// 		if (input == "\n") 
-// 			continue; 
+		if (input == "\n") 
+			continue; 
 
-// 		string processed = gtp_preprocess(input);
-// 		GTP_Command cmd = gtp_parse_command(processed);
-// 		gtp_dispatch(cmd);
-// 		gtp_process_command(cmd);
-// 		gtp_respond(cmd);
-// 		// print_Board(board); 
-// 	}
+		string processed = gtp_preprocess(input);
+		GTP_Command cmd = gtp_parse_command(processed);
+		gtp_dispatch(cmd);
+		gtp_process_command(cmd);
+		gtp_respond(cmd);
+		// print_Board(board); 
+	}
 
-// 	// if we made it here, then the input was quit
+	// if we made it here, then the input was quit
 
-// 	// exit (EXIT_SUCCESS); 
-// }
+	// exit (EXIT_SUCCESS); 
+}

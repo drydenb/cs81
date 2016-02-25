@@ -10,6 +10,7 @@ Board::Board() {
 	captured_blk = 0;
 	captured_wht = 0;
 	komi = 0.0;
+	just_moved = 0; // initially, no one has moved 
 }
 
 // constructor with boardsize argument 

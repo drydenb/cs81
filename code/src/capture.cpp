@@ -1,19 +1,14 @@
 #include <iostream>
 #include <vector> 
 #include <tuple> 
+// #include <exception>
 
+#include "capture.hpp" 
 #include "gtp.hpp" 
 #include "board.hpp"
 
-// these were defined in board.hpp:  
-// EMPTY 0 
-// BLACK 1 
-// WHITE 2
-
-#define BLACK_REPLACE 3
-#define WHITE_REPLACE 4 
-
 using namespace std; 
+
 
 // vector<tuple<int, int> > to_check;
 // vector<tuple<int, int> > to_capture; 
@@ -122,32 +117,33 @@ void remove_stones(Board &board, vector<tuple<int, int> > const &to_capture) {
 // removes the group at i, j if the group doesn't have at least 1 
 // liberty. if board.grid[i][j] == EMPTY then this function returns 
 // since we only check groups of stones for captures (obviously). 
-void perform_capture(Board &board, int i, int j) {
+void perform_capture(Board &board, int capture_color, int i, int j) {
 	
 	// used for floodfill  
-	int target_color;  
+	// int target_color;  
 	int replacement_color; 
 
 	// check this group for liberties 
 	vector<tuple<int, int> > to_check;
 
-	// base case : the grid is empty at this position 
-	if (board.grid[i][j] == EMPTY) {
+	// if the grid is empty or if we're looking at another color,
+	// don't try to perform a capture 
+	if ((board.grid[i][j] == EMPTY) || (board.grid[i][j] != capture_color)) {
 		return; 
-	} else {
-		// set the target color 
-		target_color = board.grid[i][j]; 
-	}
+	} 
 
-	// set the replacement color 
-	if (target_color == BLACK) 
+	// if we're here, then grid[i][j] contains the color we're trying to 
+	// check the captures for 
+
+	// set the replacement color depending on the capture color  
+	if (capture_color == BLACK) 
 		replacement_color = BLACK_REPLACE;
-	if (target_color == WHITE)
+	if (capture_color == WHITE)
 		replacement_color = WHITE_REPLACE; 
 
 	// now that we have the color of the grid at i, j, we perform a floodfill 
 	// and retrieve the group of stones using to_check
-	floodfill(board, to_check, i, j, target_color, replacement_color);
+	floodfill(board, to_check, i, j, capture_color, replacement_color);
 
 	// at this point, to_check should contain the vector of tuples of stones we need to 
 	// check for liberties > 0 
@@ -160,19 +156,43 @@ void perform_capture(Board &board, int i, int j) {
 	return; 
 }
 
+// we should perform captures on the color that didn't just move. then 
+// check for captures on the color that did move. this allows stones that
+// played into death the opportunity to take other stones 
 void perform_captures(Board &board) {
+
 	// this may not be the most efficient implementation, but this 
 	// should work for now. loop through all positions of the board, 
 	// detect a group of stones and check those stones for liberties. 
 	// if no liberties are found for the group, remove them from the 
 	// board. otherwise, do nothing. 
-	for (int i = 0; i < board.size; ++i) {
-		for (int j = 0; j < board.size; ++j) {
-			perform_capture(board, i, j); 
+	
+	// first perform captures on the color that didn't just move 
+	if (board.just_moved == BLACK) {
+		for (int i = 0; i < board.size; ++i) {
+			for (int j = 0; j < board.size; ++j) {
+				perform_capture(board, WHITE, i, j); 
+			}
 		}
+		return; 
 	}
+	if (board.just_moved == WHITE) {
+		for (int i = 0; i < board.size; ++i) {
+			for (int j = 0; j < board.size; ++j) {
+				perform_capture(board, BLACK, i, j); 
+			}
+		}
+		return; 
+	} 
 
-	return; 
+	// we should never get here
+	try {
+		throw;
+	}
+	catch (...) {
+		cerr << "Just moved value of board is invalid" << endl; 
+		exit(EXIT_FAILURE);
+	}
 }
 
 /* 
@@ -184,51 +204,51 @@ board is now modified
 original board is set again
 */
 
-int main() {
-	Board b; 
+// int main() {
+// 	Board b; 
 
-	// create a group of white stones 
-	b.grid[5][5] = WHITE;
-	b.grid[5][6] = WHITE;
-	b.grid[5][7] = WHITE;
-	b.grid[5][8] = WHITE;
-	b.grid[5][9] = WHITE;
-	b.grid[4][9] = WHITE;
-	b.grid[3][9] = WHITE;
-	b.grid[2][9] = WHITE;
-	b.grid[1][9] = WHITE;
-	b.grid[0][9] = WHITE;
-	b.grid[4][5] = WHITE;
-	b.grid[3][5] = WHITE;
-	b.grid[2][5] = WHITE;
-	b.grid[1][5] = WHITE;
-	b.grid[0][5] = WHITE;
+// 	// create a group of white stones 
+// 	b.grid[5][5] = WHITE;
+// 	b.grid[5][6] = WHITE;
+// 	b.grid[5][7] = WHITE;
+// 	b.grid[5][8] = WHITE;
+// 	b.grid[5][9] = WHITE;
+// 	b.grid[4][9] = WHITE;
+// 	b.grid[3][9] = WHITE;
+// 	b.grid[2][9] = WHITE;
+// 	b.grid[1][9] = WHITE;
+// 	b.grid[0][9] = WHITE;
+// 	b.grid[4][5] = WHITE;
+// 	b.grid[3][5] = WHITE;
+// 	b.grid[2][5] = WHITE;
+// 	b.grid[1][5] = WHITE;
+// 	b.grid[0][5] = WHITE;
 
-	// these black stones will be surrounded by white stones 
-	b.grid[0][6] = BLACK;
-	b.grid[0][7] = BLACK;
-	b.grid[0][8] = BLACK;
-	b.grid[1][6] = BLACK;
-	b.grid[1][7] = BLACK;
-	b.grid[1][8] = BLACK;
-	b.grid[2][6] = BLACK;
-	b.grid[2][7] = BLACK;
-	b.grid[2][8] = BLACK;
-	b.grid[3][6] = BLACK;
-	b.grid[3][7] = BLACK;
-	b.grid[3][8] = BLACK;
-	b.grid[4][6] = BLACK;
-	b.grid[4][7] = BLACK;
-	b.grid[4][8] = BLACK;
+// 	// these black stones will be surrounded by white stones 
+// 	b.grid[0][6] = BLACK;
+// 	b.grid[0][7] = BLACK;
+// 	b.grid[0][8] = BLACK;
+// 	b.grid[1][6] = BLACK;
+// 	b.grid[1][7] = BLACK;
+// 	b.grid[1][8] = BLACK;
+// 	b.grid[2][6] = BLACK;
+// 	b.grid[2][7] = BLACK;
+// 	b.grid[2][8] = BLACK;
+// 	b.grid[3][6] = BLACK;
+// 	b.grid[3][7] = BLACK;
+// 	b.grid[3][8] = BLACK;
+// 	b.grid[4][6] = BLACK;
+// 	b.grid[4][7] = BLACK;
+// 	b.grid[4][8] = BLACK;
 
-	// floodfill(b, 0, 7, EMPTY, BLACK);
-	// for (unsigned i = 0; i < to_check.size(); ++i) {
-	// 	cout << get<0>(to_check[i]) << " " << get<1> (to_check[i]) << endl; 
-	// }
-	print_Board(b); 
-	perform_captures(b);
-	cout << endl; 
-	print_Board(b); 
-	// cout << "ayy lmao" << endl; 
-	return 0;
-}
+// 	// floodfill(b, 0, 7, EMPTY, BLACK);
+// 	// for (unsigned i = 0; i < to_check.size(); ++i) {
+// 	// 	cout << get<0>(to_check[i]) << " " << get<1> (to_check[i]) << endl; 
+// 	// }
+// 	print_Board(b); 
+// 	perform_captures(b);
+// 	cout << endl; 
+// 	print_Board(b); 
+// 	// cout << "ayy lmao" << endl; 
+// 	return 0;
+// }
