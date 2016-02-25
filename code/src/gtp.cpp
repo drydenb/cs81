@@ -94,7 +94,9 @@ void print_Board(Board board) {
 // INPUT / OUTPUT PROCESSING 
 ////////////////////////////////////////////////////////////////////////////////
 
-// this function preprocesses an input command to the engine  
+/// 
+/// gtp_prepross function preprocesses an input command to the engine  
+///
 string gtp_preprocess(string input) {
 	
 	// REMOVE CONTROL CHARACTERS // 
