@@ -14,14 +14,14 @@ using namespace std;
 // vector<tuple<int, int> > to_capture; 
  
 // valid indices on the grid are from 0 to (boardsize - 1)
-bool valid_index(int const boardsize, int const idx) { 
+bool valid_index(int boardsize, int idx) { 
 	if ( (idx < boardsize) && (idx >= 0) )  
 		return true; 
 	return false; 
 }
 
 // returns the number of liberties found for the piece passed in.
-int check_stone(Board const &board, tuple<int, int> const position) {
+int check_stone(Board const &board, tuple<int, int> const &position) {
 	
 	// the number of liberties found for this piece 
 	int stone_liberties = 0; 

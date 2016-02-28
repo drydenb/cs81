@@ -5,8 +5,9 @@
 #include "board.hpp"
 using namespace std; 
 
-// a struct containing all necessary information 
-// in a GTP command from a controller  
+/// 
+/// \brief Contains all information relevant to a GTP style command.
+///
 typedef struct GTP_Command {
 	int id;
 	bool has_id; 
@@ -66,9 +67,9 @@ void gtp_init();
 ////////////////////////////////////////////////////////////////////////////////
 
 // pretty prints a GTP_Command  
-void print_GTP_Command(GTP_Command cmd); 
+void debug_Print_GTP_Command(GTP_Command const &cmd); 
 
-void print_Board(Board board); 
+void debug_Print_Board(Board const &board); 
 
 ////////////////////////////////////////////////////////////////////////////////
 // INPUT / OUTPUT PROCESSING 

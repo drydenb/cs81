@@ -1,8 +1,11 @@
 #include <iostream>
 #include <sstream> 
+#include <fstream> 
+
 #include <algorithm>
 #include <tuple> 
 #include <unordered_map>
+
 #include <random> 
 #include <cstdlib> 
 
@@ -12,6 +15,8 @@
 #include "capture.hpp" 
 #include "gtp.hpp" 
 #include "board.hpp"
+
+#define SEED 10 
 
 using namespace std;
 
@@ -47,8 +52,56 @@ unordered_map<int, char> index_to_alphabet;
 // a Board struct instance 
 Board board;
 
+// the logfile. this is used for debugging purposes 
+ofstream logfile;   
+
+////////////////////////////////////////////////////////////////////////////////
+// DEBUGGING 
+////////////////////////////////////////////////////////////////////////////////
+
+// pretty prints a GTP_Command  
+void debug_Print_GTP_Command(GTP_Command const &cmd) {
+	cerr << "ID: " << cmd.id << endl; 
+	cerr << "HAS ID: " << cmd.has_id << endl;
+	cerr << "COMMAND NAME: \'" << cmd.command_name << "\'" << endl; 
+	for (unsigned i = 0; i < cmd.args.size(); ++i) 
+		cerr << "ARG " << i << ": \'" << cmd.args[i] << "\'" << endl; 
+	cerr << "FLAG: " << cmd.error_flag << endl; 
+	cerr << "RESPONSE: \'" << cmd.response << "\'" << endl;  
+	return; 
+}
+
+void debug_Print_Board(Board const &board) {
+
+	static int move_number = 0; 
+	++move_number;
+
+	logfile << "Move number: " << move_number << endl;  
+	for (unsigned i = 0; i < board.grid.size(); ++i) {
+		for (unsigned j = 0; j < board.grid.size(); ++j) {
+			logfile << board.grid[i][j] << " ";
+		}
+		logfile << endl; 
+	}
+	logfile << endl; 
+
+	return; 
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// HELPER FUNCTIONS 
+////////////////////////////////////////////////////////////////////////////////
+
 // initializes global maps
-void gtp_init() {
+void init() {
+
+	remove("logfile.txt"); 
+	logfile.open("logfile.txt");
+	if (!logfile.is_open()) {
+		cout << "Could not generate logfile!" << endl; 
+		exit(EXIT_FAILURE);
+	}
+
 	int idx = 0;
 	BOOST_FOREACH (char c, alphabet) {
 		pair<char ,int> letter_coord (c, idx);
@@ -61,32 +114,7 @@ void gtp_init() {
 		index_to_alphabet.insert(coord_letter);
 		++idx; 
 	}
-}
 
-////////////////////////////////////////////////////////////////////////////////
-// DEBUGGING 
-////////////////////////////////////////////////////////////////////////////////
-
-// pretty prints a GTP_Command  
-void print_GTP_Command(GTP_Command cmd) {
-	cout << "ID: " << cmd.id << endl; 
-	cout << "HAS ID: " << cmd.has_id << endl;
-	cout << "COMMAND NAME: \'" << cmd.command_name << "\'" << endl; 
-	for (unsigned i = 0; i < cmd.args.size(); ++i) 
-		cout << "ARG " << i << ": \'" << cmd.args[i] << "\'" << endl; 
-	cout << "FLAG: " << cmd.error_flag << endl; 
-	cout << "RESPONSE: \'" << cmd.response << "\'" << endl;  
-	return; 
-}
-
-void print_Board(Board board) {
-	for (unsigned i = 0; i < board.grid.size(); ++i) {
-		for (unsigned j = 0; j < board.grid.size(); ++j) {
-			cout << board.grid[i][j] << " ";
-		}
-		cout << endl; 
-	}
-	return; 
 }
 
 
@@ -465,9 +493,16 @@ void gtp_play(GTP_Command &cmd) {
 	}
 
 	// print_Board(board); 
-	
+	// ofstream logfile; 
+	// logfile.open("logfile.txt");
+	// logfile
+
 	// check the board for captures 
+	// logfile << "Before captures (play): ";
+	// debug_Print_Board(board); 
 	perform_captures(board); 
+	logfile << "After captures (play): ";
+	debug_Print_Board(board); 
 
 	return; 
 }
@@ -483,6 +518,25 @@ bool move_in_history(Board const &board, vector<vector<int> > const &tentative) 
 	}
 	return seen; 
 }
+
+// we should never play into death. this function checks surrounding positions for
+// stones of the appropriate color and returns true if this is a move into death 
+// bool into_death(vector<vector<int> > const &grid, 
+// 			    int boardsize, 
+// 			    int enemy_color, 
+// 			    int x_idx, 
+// 			    int y_idx) {
+// 	bool in_death = false; 
+	
+// 	// check 4 possible surrounding positions, provided their indices are valid 
+
+// 	// check up 
+// 	if (valid_index(boardsize, ++y_idx)) {
+
+// 	}
+
+// 	return; 
+// }
 
 void gtp_genmove(GTP_Command &cmd) {
 
@@ -512,6 +566,7 @@ void gtp_genmove(GTP_Command &cmd) {
 	// draw from a uniform random distribution on [0, board.grid.size() - 1] 
 	// since the minimum index is 0 and the maximum index is the boardsize - 1. 
 	default_random_engine generator; 
+	generator.seed(SEED); 
 	uniform_int_distribution<int> distribution(0, board.grid.size() - 1); 
 
 	while (!done) {
@@ -520,15 +575,25 @@ void gtp_genmove(GTP_Command &cmd) {
 		int x_idx = distribution(generator); 
 		int y_idx = distribution(generator); 
 
-		// copy the current board state into tentative_move 
-		vector<vector<int> > tentative = board.grid; 
+		logfile << "Generated x, y: " << x_idx << "," << y_idx << endl; 
 
-		// perform the tentative move 
-		if ((black_flag) && (tentative[x_idx][y_idx] == EMPTY)) {
+		// copy the current board state into tentative
+		vector<vector<int> > tentative = board.grid;
+		
+		// if the generated indices is for a filled square, then generate 
+		// a new one  
+		if (!(tentative[x_idx][y_idx] == EMPTY)) {
+			continue; 
+		}
+
+		assert (black_flag || white_flag);
+
+		// if we made it here, then we can at least perform the move 
+		if (black_flag) {
 			tentative[x_idx][y_idx] = BLACK;
 			color_played = BLACK; 
 		}
-		if ((white_flag) && (tentative[x_idx][y_idx] == EMPTY)) {
+		if (white_flag) {
 			tentative[x_idx][y_idx] = WHITE;
 			color_played = WHITE;  
 		}
@@ -542,6 +607,10 @@ void gtp_genmove(GTP_Command &cmd) {
 			// record this move in the move history 
 			x_played = x_idx;
 			y_played = y_idx; 
+
+			logfile << "set xplayed: " << x_idx << endl; 
+			logfile << "set yplayed: " << y_idx << endl; 
+
 			board.just_moved = color_played; 
 			board.move_history.push_back(board.grid); 
 
@@ -599,11 +668,20 @@ void gtp_genmove(GTP_Command &cmd) {
 	cmd.response = string(y_string + x_string); 
 
 	// print_Board(board);
-
+	logfile << "Choosen move: " << to_string(x_played) << " " << to_string(y_played) << endl; 
 	// check the board for captures: 
+	// logfile << "Before captures (genmove): ";
+	// debug_Print_Board(board); 
 	perform_captures(board); 
+	logfile << "After captures (genmove): ";
+	debug_Print_Board(board); 
+
 	return; 
 }
+
+// void debug_print_board(GTP_Command &cmd) {
+// 	print_Board(board); 
+// }
 
 // this function calls the appropriate GTP command for a given instance 
 void gtp_dispatch(GTP_Command &cmd) {
@@ -645,7 +723,11 @@ int main() {
 	// string test("3 tabs:			. # this is a comment \n # another comment \n   		   \n\n\n more stuff # final comment \n");
 	// string test("# comment \n 28 komi 1.0 \n");
 
-	gtp_init(); 
+	init(); 
+
+	// debug_Print_Board(board);
+	// exit(EXIT_SUCCESS);
+
 	// cout << "Before:" << endl; 
 	// print_Board(board); 
 
