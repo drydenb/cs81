@@ -163,3 +163,46 @@ void gtp_version(GTP_Command &cmd) {
 // 	"play",
 // 	"genmove",
 // };
+
+/// 
+/// \brief Parses a move from the GTP controller and returns a tuple that 
+///        indexes into the internal representation of the board.  
+/// It is the caller's job to ensure that param 'move' is cast to lowercase. 
+/// param 'flag' is assumed to be passed in as false. 
+/// 
+tuple<int, int> parse_move(string move, bool &flag) {
+
+	// parse the move into its component coordinates
+
+
+	int y_coord;   
+	char letter = move[0]; 
+
+	// search for the letter of the move (the y-coordinate) in our 
+	// alphabet_to_index map 
+	unordered_map<char,int>::const_iterator it = 
+		alphabet_to_index.find(letter);
+
+	// if we didn't find the letter, then there is an error in parsing 
+	if ( it == alphabet_to_index.end() ) {
+		flag = true;    // toggle the error flag 
+		tuple<int, int> dummy (0, 0);  
+		return dummy; 
+	} else {
+		// retrieve the index 
+		y_coord = it->second; 
+	}
+
+	// get the y_coordinate of the move 
+	int x_coord = stoi(move.substr(1)); 
+	--x_coord;
+
+	// this x_coordinate isn't quite right yet, (i.e., A1 is the lower 
+	// left hand corner). change the x_coordinate so it indexes from 
+	// bottom to top instead of top to bottom. 
+	// x_coord = (board.size - x_coord) + 1;
+
+	// sanity check: 19 - 1 + 1 = 19, and 19 - 19 + 1 = 1.
+	tuple<int, int> pair (x_coord, y_coord); 
+	return pair; 
+}

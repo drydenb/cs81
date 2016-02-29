@@ -20,6 +20,9 @@
 
 using namespace std;
 
+
+
+
 ////////////////////////////////////////////////////////////////////////////////
 // GLOBALS
 ////////////////////////////////////////////////////////////////////////////////
@@ -44,22 +47,40 @@ unordered_map<string, int> supported_commands {
 // define a mapping from each letter in the modified alphabet (doesn't include
 // the letter 'i') to an index in the board 
 string alphabet("abcdefghjklmnopqrstuvwxyz");   
+
 // letter from GUI --> index for internal grid representation 
 unordered_map<char, int> alphabet_to_index;
+
 // index from internal grid representation --> letter to GUI 
 unordered_map<int, char> index_to_alphabet; 
 
-// a Board struct instance 
+// this is the global board instance
 Board board;
 
 // the logfile. this is used for debugging purposes 
 ofstream logfile;   
 
+
+
+
 ////////////////////////////////////////////////////////////////////////////////
-// DEBUGGING 
+// DEBUGGING FUNCTIONS 
 ////////////////////////////////////////////////////////////////////////////////
 
-// pretty prints a GTP_Command  
+/// 
+/// \brief Prints out the contents of an unordered_map<S, T> to the logfile.  
+///
+template<typename S, typename T> 
+void debug_Print_Map(unordered_map<S, T> const &map) {
+	for (auto it = map.begin(); it != map.end(); ++it) {
+		logfile << it->first << "," << it->second << ";" << endl; 
+	}
+	return; 
+}
+
+///
+/// \brief Prints out the contents of a GTP_Command struct to the logfile.
+///    
 void debug_Print_GTP_Command(GTP_Command const &cmd) {
 	cerr << "ID: " << cmd.id << endl; 
 	cerr << "HAS ID: " << cmd.has_id << endl;
@@ -71,12 +92,17 @@ void debug_Print_GTP_Command(GTP_Command const &cmd) {
 	return; 
 }
 
+///
+/// \brief Prints out a ASCII representation of the board to the logfile. 
+/// In the print out, 0 represents empty, 1 represents black, and 2 represents
+/// white. The board is also labeled with its board number, which is the number
+/// of boards printed out to the logfile so far. 
+/// 
 void debug_Print_Board(Board const &board) {
-
-	static int move_number = 0; 
-	++move_number;
-
-	logfile << "Move number: " << move_number << endl;  
+	// use static int to keep track of how many times we print out a board 
+	static int board_number = 0; 
+	++board_number;
+	logfile << "Board Number: " << board_number << endl;  
 	for (unsigned i = 0; i < board.grid.size(); ++i) {
 		for (unsigned j = 0; j < board.grid.size(); ++j) {
 			logfile << board.grid[i][j] << " ";
@@ -88,13 +114,19 @@ void debug_Print_Board(Board const &board) {
 	return; 
 }
 
+
+
+
 ////////////////////////////////////////////////////////////////////////////////
 // HELPER FUNCTIONS 
 ////////////////////////////////////////////////////////////////////////////////
 
-// initializes global maps
+/// 
+/// \brief Intializes global maps etc. necessary for the GTP communication.
+///
 void init() {
 
+	// create a logfile for recording moves made this game 
 	remove("logfile.txt"); 
 	logfile.open("logfile.txt");
 	if (!logfile.is_open()) {
@@ -102,6 +134,7 @@ void init() {
 		exit(EXIT_FAILURE);
 	}
 
+	// initialize both unordered maps 
 	int idx = 0;
 	BOOST_FOREACH (char c, alphabet) {
 		pair<char ,int> letter_coord (c, idx);
@@ -114,8 +147,49 @@ void init() {
 		index_to_alphabet.insert(coord_letter);
 		++idx; 
 	}
-
+	return; 
 }
+
+///
+/// \brief Converts from the internal representation's coordinates to GTP's 
+///        external coordinates. 
+/// The internal representation is flipped on the vertical axis with respect 
+/// to the external representation. This is mainly because GTP defines its 
+/// boord coordinates' origin A1 in the lower-left, whereas the internal 
+/// representation's origin 0,0 is in the upper-left. Optimal future moves are
+/// invariant upon rotations or reflections of the board, so this seems okay. 
+/// Thus (0,0) --> ('A', 1), (0, 18) --> ('A', 19), (18, 0) --> ('T', 1), 
+/// and (18, 18) --> ('T', 19), with natural extensions for larger boards. 
+///   
+tuple<char, int> internal_to_external(tuple<int, int> const &coord) {
+	// we want to map the first element of the tuple to its corresponding 
+	// character using the index_to_alphabet map. 
+	unordered_map<int, char>::const_iterator it = 
+		index_to_alphabet.find(get<0>(coord));
+	assert (it != index_to_alphabet.end()); 
+	char letter = it->second;         // this is lowercase, OK by protocol 
+	int index = get<1>(coord) + 1;    // external rep. is 1-indexed
+	return tuple<char, int> (letter, index);
+}
+
+///
+/// \brief Converts from GTP's external coordinates to the internal 
+///        representation's coordinates.
+/// See internal_to_external for a more detailed description. This function 
+/// performs the reverse mapping.
+/// 
+tuple<int, int> external_to_internal(tuple<char, int> const &coord) {
+	// map the character to its index in the internal rep. 
+	unordered_map<char, int>::const_iterator it = 
+		alphabet_to_index.find(get<0>(coord));
+	assert (it != alphabet_to_index.end());
+	int x_idx = it->second; 
+	int y_idx = get<1>(coord) - 1;    // internal rep. is 0-indexed
+	assert (y_idx >= 0);
+	return tuple<int, int> (x_idx, y_idx); 
+}
+
+
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -421,36 +495,6 @@ void gtp_komi(GTP_Command &cmd) {
 	return; 
 }
 
-tuple<int, int> parse_move(string move, bool &flag) {
-
-	// get the y coordinate of the move
-	int y_coord;   
-	char letter = move[0]; 
-	unordered_map<char,int>::const_iterator it = 
-		alphabet_to_index.find(letter);
-	if ( it == alphabet_to_index.end() ) {
-		flag = true;
-		tuple<int, int> dummy (0, 0);  
-		return dummy; 
-	} else {
-		// retrieve the index 
-		y_coord = it->second; 
-	}
-
-	// get the y_coordinate of the move 
-	int x_coord = stoi(move.substr(1)); 
-	--x_coord;
-
-	// this x_coordinate isn't quite right yet, (i.e., A1 is the lower 
-	// left hand corner). change the x_coordinate so it indexes from 
-	// bottom to top instead of top to bottom. 
-	// x_coord = (board.size - x_coord) + 1;
-
-	// sanity check: 19 - 1 + 1 = 19, and 19 - 19 + 1 = 1.
-	tuple<int, int> pair (x_coord, y_coord); 
-	return pair; 
-}
-
 // forces the board to play in a particular given position 
 void gtp_play(GTP_Command &cmd) {
 
@@ -461,28 +505,24 @@ void gtp_play(GTP_Command &cmd) {
 	transform(color.begin(), color.end(), color.begin(), ::tolower);
 	transform(move.begin(), move.end(), move.begin(), ::tolower);
 
-	// cout << "color" << color << endl;
-	// cout << "move" << move << endl; 
+	// parse the move and convert it to internal representation coordinates 
+	char letter = move[0];               
+	int index = stoi(move.substr(1));    
+	tuple<char, int> external_coord (letter, index); 
+	tuple<int, int> internal_coord = external_to_internal(external_coord); 
 
-	// parse the move
-	bool parse_flag = false; 
-	tuple<int, int> coord = parse_move(move, parse_flag);
-	if (parse_flag) {
-		cmd.error_flag = true;
-		cmd.response = string("illegal move"); 
-		return; 
-	} 
+	// now internal_coord should index into our board appropriately 
 
 	if ( (color == "black") || (color == "b") ) {
 		// move black where move is
-		board.grid[get<0>(coord)][get<1>(coord)] = BLACK;  
+		board.grid[get<0>(internal_coord)][get<1>(internal_coord)] = BLACK;  
 		// change the just_moved flag in the board 
 		board.just_moved = BLACK; 
 		// update the move history 
 		board.move_history.push_back(board.grid); 
 	} else if ( (color == "white") || (color == "w" ) ) {
 		// move white where move is
-		board.grid[get<0>(coord)][get<1>(coord)] = WHITE;  
+		board.grid[get<0>(internal_coord)][get<1>(internal_coord)] = WHITE;  
 		// change just_moved
 		board.just_moved = WHITE; 
 		// update the move history 
@@ -496,7 +536,6 @@ void gtp_play(GTP_Command &cmd) {
 	// ofstream logfile; 
 	// logfile.open("logfile.txt");
 	// logfile
-
 	// check the board for captures 
 	// logfile << "Before captures (play): ";
 	// debug_Print_Board(board); 
@@ -534,18 +573,18 @@ bool move_in_history(Board const &board, vector<vector<int> > const &tentative) 
 // 	if (valid_index(boardsize, ++y_idx)) {
 
 // 	}
-
 // 	return; 
 // }
 
 void gtp_genmove(GTP_Command &cmd) {
 
-	string color = cmd.args[0];    // retrieve the color 
+	// retrieve the color for which we need to generate a move 
+	string color = cmd.args[0];    
 	transform(color.begin(), color.end(), color.begin(), ::tolower); 
 
+	// toggle flag for white or black to move 
 	bool black_flag = false;
 	bool white_flag = false; 
-
 	if ( (color == "b") || (color == "black") ) {
 		black_flag = true;
 	} else if ( (color == "w") || (color == "white") ) {
