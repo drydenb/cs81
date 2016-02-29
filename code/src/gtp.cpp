@@ -518,15 +518,19 @@ void gtp_play(GTP_Command &cmd) {
 		board.grid[get<0>(internal_coord)][get<1>(internal_coord)] = BLACK;  
 		// change the just_moved flag in the board 
 		board.just_moved = BLACK; 
+
+		// TODO: DEAL WITH SUPERKO USING HASHING
 		// update the move history 
-		board.move_history.push_back(board.grid); 
+		// board.move_history.push_back(board.grid); 
 	} else if ( (color == "white") || (color == "w" ) ) {
 		// move white where move is
 		board.grid[get<0>(internal_coord)][get<1>(internal_coord)] = WHITE;  
 		// change just_moved
 		board.just_moved = WHITE; 
+
+		// TODO: DEAL WITH SUPERKO USING HASHING 
 		// update the move history 
-		board.move_history.push_back(board.grid); 
+		// board.move_history.push_back(board.grid); 
 	} else {
 		cmd.error_flag = true;
 		cmd.response = string("syntax error");  
@@ -547,16 +551,16 @@ void gtp_play(GTP_Command &cmd) {
 }
 
 // this function determines if the grid passed in has been seen before 
-bool move_in_history(Board const &board, vector<vector<int> > const &tentative) {
-	bool seen = false; 
-	for (unsigned i = 0; i < board.move_history.size(); ++i) {
-		if (tentative == board.move_history[i]) {
-			seen = true;
-			return seen;  
-		}
-	}
-	return seen; 
-}
+// bool move_in_history(Board const &board, vector<vector<int> > const &tentative) {
+// 	bool seen = false; 
+// 	for (unsigned i = 0; i < board.move_history.size(); ++i) {
+// 		if (tentative == board.move_history[i]) {
+// 			seen = true;
+// 			return seen;  
+// 		}
+// 	}
+// 	return seen; 
+// }
 
 // we should never play into death. this function checks surrounding positions for
 // stones of the appropriate color and returns true if this is a move into death 
@@ -595,8 +599,8 @@ void gtp_genmove(GTP_Command &cmd) {
 		return; 
 	}
 
-	// generates a move of the given color. for now, have this play moves 
-	// in a for loop 
+	// generates a move of the given color. for now, play random moves 
+	// using a uniform random distribution. 
 	int x_played;
 	int y_played; 
 	int color_played; 
@@ -628,6 +632,7 @@ void gtp_genmove(GTP_Command &cmd) {
 		assert (black_flag || white_flag);
 
 		// if we made it here, then we can at least perform the move 
+		// TODO: THIS DOES NOT CHECK FOR PLAYING INTO DEATH 
 		if (black_flag) {
 			tentative[x_idx][y_idx] = BLACK;
 			color_played = BLACK; 
@@ -637,77 +642,56 @@ void gtp_genmove(GTP_Command &cmd) {
 			color_played = WHITE;  
 		}
 
+		// TODO: DOES NOT DEAL WITH SUPERKO 
+		board.grid = tentative; 
+		x_played = x_idx;
+		y_played = y_idx; 
+		board.just_moved = color_played; 
+
+		logfile << "x_played: " << x_idx << endl; 
+		logfile << "y_played: " << y_idx << endl; 
+
+		done = true; 
+
 		// using the tentative board, we test if this move has occurred before 
-		if (!move_in_history(board, tentative)) {
-			// perform the move  
-			board.grid = tentative;
+		// if (!move_in_history(board, tentative)) {
+		// 	// perform the move  
+		// 	board.grid = tentative;
 
-			// record what move was performed, the color that moved, and
-			// record this move in the move history 
-			x_played = x_idx;
-			y_played = y_idx; 
+		// 	// record what move was performed, the color that moved, and
+		// 	// record this move in the move history 
+		// 	x_played = x_idx;
+		// 	y_played = y_idx; 
 
-			logfile << "set xplayed: " << x_idx << endl; 
-			logfile << "set yplayed: " << y_idx << endl; 
+		// 	logfile << "set xplayed: " << x_idx << endl; 
+		// 	logfile << "set yplayed: " << y_idx << endl; 
 
-			board.just_moved = color_played; 
-			board.move_history.push_back(board.grid); 
+		// 	board.just_moved = color_played; 
+		// 	board.move_history.push_back(board.grid); 
 
-			// the move is complete 
-			done = true;  
-		}
+		// 	// the move is complete 
+		// 	done = true;  
+		// }
 	}
 
-	// for (unsigned i = 0; i < board.grid.size(); ++i) {
-	// 	for (unsigned j = 0; j < board.grid.size(); ++j) {
-	// 		if ( (black_flag) && (board.grid[i][j] == EMPTY) ) {
-	// 			// cout << "Inside black" << endl;
-	// 			board.grid[i][j] = BLACK;
-	// 			x_played = i;
-	// 			y_played = j; 
-	// 			done = true;
-	// 			break;
-	// 		}
-	// 		if ( (white_flag) && (board.grid[i][j] == EMPTY) ) {
-	// 			// cout << "Inside white" << endl; 
-	// 			board.grid[i][j] = WHITE;
-	// 			x_played = i;
-	// 			y_played = j; 
-	// 			done = true;
-	// 			break;
-	// 		}
-	// 	}
-	// 	if (done) 
-	// 		break;
-	// }
+	// we now must relay the move that was played back to the controller 
+	tuple<int, int> internal_coord (x_played, y_played);
+	tuple<char, int> external_coord = internal_to_external(internal_coord); 
 
-	// cout << x_played << endl; 
-	// cout << y_played << endl;
-	// print_Board(board); 
-	// cout << BLACK;
-	// cout << WHITE;
-	// cout << EMPTY; 
-	string y_string; 
-	unordered_map<int, char>::const_iterator it = 
-										index_to_alphabet.find(y_played);
-	if ( it == index_to_alphabet.end() ) {
-		cerr << "Invalid index played" << endl; 
-		exit(EXIT_FAILURE); 
-	} else {
-		stringstream ss; 
-		char y_char = it->second;
-		ss << y_char;
-		ss >> y_string;  
-	}
+	// using the converted external coordinates, cast to strings and 
+	// concatenate the response 
+	string x_string(1, get<0>(external_coord));
+	string y_string = to_string(get<1>(external_coord)); 
+	string response = x_string + y_string; 
 
-	++x_played;    // the board is indexed at 1 
+	logfile << "the response is: " << response << endl; 
 
-	string x_string = to_string(x_played);
-	transform(y_string.begin(), y_string.end(), y_string.begin(), ::toupper); 
-	cmd.response = string(y_string + x_string); 
+	// set the response in the GTP_Command struct and then return 
+	cmd.response = response; 
 
 	// print_Board(board);
-	logfile << "Choosen move: " << to_string(x_played) << " " << to_string(y_played) << endl; 
+	logfile << "Choosen move: " << to_string(x_played) << " ";
+	logfile << to_string(y_played) << endl; 
 	// check the board for captures: 
 	// logfile << "Before captures (genmove): ";
 	// debug_Print_Board(board); 
