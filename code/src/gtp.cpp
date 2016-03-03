@@ -7,6 +7,7 @@
 #include <unordered_map>
 
 #include <random> 
+#include <ctime> 
 #include <cstdlib> 
 
 #include <boost/lexical_cast.hpp>
@@ -379,7 +380,11 @@ void gtp_process_command(GTP_Command &cmd) {
 	}
 }
 
-// this sends the response from the engine to stdout 
+/// 
+/// \brief Given a GTP_Command struct, this prints to stdout the response 
+///        stored in the struct. This should be called after the GTP command 
+///        has been executed so the engine can respond to the controller. 
+/// 
 void gtp_respond(GTP_Command &cmd) {
 	cout << cmd.response << endl; 
 }
@@ -403,29 +408,40 @@ void gtp_respond(GTP_Command &cmd) {
 // 	return 
 // }
 
-// this code implements GTP Protocol Version 2 
+/// 
+/// \brief Prints out the GTP protocol version supported by the engine. This 
+///        is Version 2.
+/// 
 void gtp_protocol_version(GTP_Command &cmd) {
 	cmd.response = string("2");
 	assert (!cmd.error_flag);    	// this command never fails  
 	return; 
 }
 
-// prints out the name of this engine. this doesn't matter -- just pick "Izumi"
+/// 
+/// \brief Prints out the name of the engine -- choosen to be "Izumi" which 
+///        means "spring."
+///
 void gtp_name(GTP_Command &cmd) {
 	cmd.response = string("Izumi");
 	assert (!cmd.error_flag);    // this command never fails 
 	return; 
 }
 
-// prints out the version number for this engine. since no sense of version 
-// return the empty string (compliant with GTP) 
+///
+/// \brief Prints out the version of the engine. This engine has no concept of 
+///        version so this prints out the empty string as compliant with GTP. 
+///
 void gtp_version(GTP_Command &cmd) {
 	cmd.response = string(""); 
 	assert (!cmd.error_flag);    // this command never fails 
 	return; 
 }
-
-// checks if the command given is supported 
+ 
+/// 
+/// \brief Allows the controller to check if a given command is supported by 
+///        the engine.
+///
 void gtp_known_command(GTP_Command &cmd) {
 	// if known return true 
 	unordered_map<string, int>::const_iterator cmd_it =
@@ -440,7 +456,10 @@ void gtp_known_command(GTP_Command &cmd) {
 	return; 
 }
 
-// lists all the commands supported by the engine 
+///
+/// \brief This function prints out to the controller what GTP functions are 
+///        supported by the engine.
+/// 
 void gtp_list_commands(GTP_Command &cmd) {
 	for (unordered_map<string, int>::iterator it = supported_commands.begin(); 
 		it != supported_commands.end();
@@ -451,7 +470,10 @@ void gtp_list_commands(GTP_Command &cmd) {
 	return; 
 }
 
-// exits with success 
+///
+/// \brief This function allows the controller to terminate connection with the
+///        engine.
+/// 
 void gtp_quit(GTP_Command &cmd) {
 	cmd.response = string(""); 
 	assert (!cmd.error_flag); 
@@ -460,6 +482,11 @@ void gtp_quit(GTP_Command &cmd) {
 	exit (EXIT_SUCCESS); 
 }
 
+/// 
+/// \brief Changes the boardsize. Note that this function does not clear the 
+///        board so the moment this function is called the board state is 
+///        corrupted. 
+/// 
 void gtp_boardsize(GTP_Command &cmd) {
 	// retrive the boardsize from args 
 	int size = stoi(cmd.args[0]);     
@@ -476,6 +503,10 @@ void gtp_boardsize(GTP_Command &cmd) {
 	return; 
 }
 
+///
+/// \brief Resets the board state. Note that this function does not change 
+///        the boardsize.
+/// 
 void gtp_clear_board(GTP_Command &cmd) {
 	// retrieve the boardsize from instance, clear the board, clear the 
 	// capture counts, and clear move history
@@ -489,6 +520,9 @@ void gtp_clear_board(GTP_Command &cmd) {
 	return; 
 }
 
+///
+/// \brief Sets the komi for the engine. 
+///
 void gtp_komi(GTP_Command &cmd) {
 	float new_komi = stof(cmd.args[0]);    // retrieve the komi from args
 	board.komi = new_komi;                 // set the komi 
@@ -496,6 +530,11 @@ void gtp_komi(GTP_Command &cmd) {
 }
 
 // forces the board to play in a particular given position 
+
+///
+/// \brief This function allows the controller to play a move of any color at 
+///        any location on the board.
+///
 void gtp_play(GTP_Command &cmd) {
 
 	// retrive the color and move from args  
@@ -580,6 +619,15 @@ void gtp_play(GTP_Command &cmd) {
 // 	return; 
 // }
 
+// TODO: write function that prevents us from playing into death: 
+
+///
+/// \brief Causes the engine to generate a move for the controller using 
+///        the internal representation of the board. 
+/// This is the most important function between the controller and the engine.
+/// The controller asks the engine to generate a move, and the engine uses its 
+/// current state to generate a move and send the result back to the controller. 
+///
 void gtp_genmove(GTP_Command &cmd) {
 
 	// retrieve the color for which we need to generate a move 
@@ -608,8 +656,9 @@ void gtp_genmove(GTP_Command &cmd) {
 
 	// draw from a uniform random distribution on [0, board.grid.size() - 1] 
 	// since the minimum index is 0 and the maximum index is the boardsize - 1. 
-	default_random_engine generator; 
-	generator.seed(SEED); 
+	time_t seconds;
+	seconds = (int) time(NULL); 
+	default_random_engine generator(seconds); 
 	uniform_int_distribution<int> distribution(0, board.grid.size() - 1); 
 
 	while (!done) {
