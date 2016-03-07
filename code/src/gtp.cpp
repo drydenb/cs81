@@ -62,6 +62,9 @@ Board board;
 // the time in seconds (unix epoch)
 time_t seconds = (int) time(NULL); 
 
+// initialize the randome number generator 
+default_random_engine generator(seconds); 
+
 // the logfile. this is used for debugging purposes 
 ofstream logfile;   
 
@@ -652,76 +655,64 @@ void gtp_genmove(GTP_Command &cmd) {
 	// generates a move of the given color. for now, play random moves 
 	// using a uniform random distribution. 
 	int x_played;
-	int y_played; 
-	int color_played; 
-	bool done = false; 
+	int y_played;  
 
 	// draw from a uniform random distribution on [0, board.grid.size() - 1] 
 	// since the minimum index is 0 and the maximum index is the boardsize - 1. 
-	default_random_engine generator(seconds); 
 	uniform_int_distribution<int> distribution(0, board.grid.size() - 1); 
 
-	// stop when a valid move is played 
-	while (!done) {
+	// only stop when a valid move is played 
+	while (true) {
 
 		// draw samples from the distribution 
 		int x_idx = distribution(generator); 
 		int y_idx = distribution(generator); 
 
 		logfile << "Generated x, y: " << x_idx << "," << y_idx << endl; 
-
-		// copy the current board state into tentative
-		vector<vector<int> > tentative = board.grid;
 		
-		// if the generated indices is for a filled square, then generate 
-		// a new one  
-		if (!(tentative[x_idx][y_idx] == EMPTY)) {
+		// generate new indices if we attempt to play on a filled square  
+		if (!(board.grid[x_idx][y_idx] == EMPTY)) {
 			continue; 
 		}
 
+		// create a tentative state to test whether our generated move is valid 
+		Board tentative = board; 
+
+		// we should generate a move for either black or white 
 		assert (black_flag || white_flag);
 
-		// if we made it here, then we can at least perform the move 
-		// TODO: THIS DOES NOT CHECK FOR PLAYING INTO DEATH 
+		// if we made it here, then tentatively perform the move and check 
+		// if it is into death 
+		bool into_death; 
 		if (black_flag) {
-			tentative[x_idx][y_idx] = BLACK;
-			color_played = BLACK; 
+			tentative.grid[x_idx][y_idx] = BLACK;
+			tentative.just_moved = BLACK;
+			into_death = check_captures(tentative, BLACK); 
 		}
 		if (white_flag) {
-			tentative[x_idx][y_idx] = WHITE;
-			color_played = WHITE;  
+			tentative.grid[x_idx][y_idx] = WHITE;
+			tentative.just_moved = WHITE; 
+			into_death = check_captures(tentative, WHITE);
 		}
 
-		// TODO: DOES NOT DEAL WITH SUPERKO 
-		board.grid = tentative; 
+		if (into_death) {
+			logfile << "suicide" << endl;
+			continue; 
+		}  else {
+			logfile << "not into death" << endl; 
+		}
+
+		// TODO: superko check 
+
+		// we can play the move 
+		board = tentative; 
 		x_played = x_idx;
-		y_played = y_idx; 
-		board.just_moved = color_played; 
+		y_played = y_idx;  
 
 		logfile << "x_played: " << x_idx << endl; 
 		logfile << "y_played: " << y_idx << endl; 
 
-		done = true; 
-
-		// using the tentative board, we test if this move has occurred before 
-		// if (!move_in_history(board, tentative)) {
-		// 	// perform the move  
-		// 	board.grid = tentative;
-
-		// 	// record what move was performed, the color that moved, and
-		// 	// record this move in the move history 
-		// 	x_played = x_idx;
-		// 	y_played = y_idx; 
-
-		// 	logfile << "set xplayed: " << x_idx << endl; 
-		// 	logfile << "set yplayed: " << y_idx << endl; 
-
-		// 	board.just_moved = color_played; 
-		// 	board.move_history.push_back(board.grid); 
-
-		// 	// the move is complete 
-		// 	done = true;  
-		// }
+		break; 
 	}
 
 	// we now must relay the move that was played back to the controller 

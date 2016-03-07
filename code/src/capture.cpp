@@ -207,12 +207,19 @@ bool check_capture(Board const &board, int capture_color, int i, int j) {
 /// 
 bool check_captures(Board const &board, int capture_color) {
 	bool can_capture = false; 
+	bool done = false; 
 	for (int i = 0; i < board.size; ++i) {
 		for (int j = 0; j < board.size; ++j) {
 			// check_capture returns true if a capture can occur for the group 
 			// at i,j, and false otherwise. 
-			can_capture = check_capture(board, capture_color, i, j);
+			if (check_capture(board, capture_color, i, j)) {
+				can_capture = true;
+				done = true; 
+				break; 
+			}
 		}
+		if (done)
+			break; 
 	}
 	return can_capture; 
 }
