@@ -17,8 +17,7 @@
 #include "gtp.hpp" 
 #include "board.hpp"
 
-// the seed used to debug 
-#define DEBUG_SEED 10 
+#define SEED 10 
 
 using namespace std;
 
@@ -28,6 +27,8 @@ using namespace std;
 ////////////////////////////////////////////////////////////////////////////////
 // GLOBALS
 ////////////////////////////////////////////////////////////////////////////////
+
+time_t seconds; 
 
 // an unordered map containing all supported GTP commands as keys and the number
 // of arguments expected for each command as values 
@@ -58,9 +59,6 @@ unordered_map<int, char> index_to_alphabet;
 
 // this is the global board instance
 Board board;
-
-// the time in seconds (unix epoch)
-time_t seconds = (int) time(NULL); 
 
 // the logfile. this is used for debugging purposes 
 ofstream logfile;   
@@ -131,6 +129,7 @@ void debug_Print_Board(Board const &board) {
 ///
 void init() {
 
+	seconds = (int) time(NULL); 
 	// create a logfile for recording moves made this game 
 	remove("logfile.txt"); 
 	logfile.open("logfile.txt");
@@ -561,6 +560,7 @@ void gtp_play(GTP_Command &cmd) {
 		board.grid[get<0>(internal_coord)][get<1>(internal_coord)] = BLACK;  
 		// change the just_moved flag in the board 
 		board.just_moved = BLACK; 
+
 		// TODO: DEAL WITH SUPERKO USING HASHING
 		// update the move history 
 		// board.move_history.push_back(board.grid); 
@@ -569,6 +569,7 @@ void gtp_play(GTP_Command &cmd) {
 		board.grid[get<0>(internal_coord)][get<1>(internal_coord)] = WHITE;  
 		// change just_moved
 		board.just_moved = WHITE; 
+
 		// TODO: DEAL WITH SUPERKO USING HASHING 
 		// update the move history 
 		// board.move_history.push_back(board.grid); 
@@ -661,7 +662,6 @@ void gtp_genmove(GTP_Command &cmd) {
 	default_random_engine generator(seconds); 
 	uniform_int_distribution<int> distribution(0, board.grid.size() - 1); 
 
-	// stop when a valid move is played 
 	while (!done) {
 
 		// draw samples from the distribution 

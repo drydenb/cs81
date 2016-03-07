@@ -3,6 +3,8 @@
 CC = g++
 CFLAGS = -std=c++11 -Wall -g 
 EXEC = izumi 
+LOGFILE = logfile.txt 
+
 all: $(EXEC)
 
 $(EXEC): gtp.o board.o capture.o
@@ -19,3 +21,4 @@ capture.o: capture.cpp capture.hpp
 
 clean: 
 	rm -f $(EXEC) *.o  
+	rm -f $(LOGFILE)
