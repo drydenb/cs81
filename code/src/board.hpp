@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <vector> 
+#include <deque> 
 
 #define EMPTY 0 
 #define BLACK 1 
@@ -17,7 +18,7 @@ struct Board {
 	vector<vector<int> > grid;
 	int captured_blk;
 	int captured_wht;
-	vector<vector<vector<int>> > move_history; // vector of grids   
+	vector<vector<vector<int>> > move_history;  
 	float komi;
 	int just_moved;
 
